@@ -1,0 +1,12 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <RootNamespace>PrintHub.Core</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- No external dependencies - clean architecture core -->
+  </ItemGroup>
+</Project>
