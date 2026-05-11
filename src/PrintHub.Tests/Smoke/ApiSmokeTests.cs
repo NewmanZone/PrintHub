@@ -79,7 +79,6 @@ public class ApiSmokeTests : IClassFixture<SmokeTestOptions>
         // Assert
         var loginResult = result.FirstOrDefault(r => r.TestName == "Login Endpoint Exists");
         loginResult.Should().NotBeNull();
-        loginResult!.StatusCode.Should().BeOneOf(400, 401, 404, 422,
-            "Login endpoint should respond (400 bad request without credentials is acceptable)");
+        loginResult!.StatusCode.Should().BeOneOf(400, 401, 404, 422);
     }
 }
