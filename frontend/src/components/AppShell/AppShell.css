@@ -1,0 +1,26 @@
+.ph-app-shell {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--canvas);
+}
+
+.ph-app-shell__main {
+  margin-left: var(--sidebar-width);
+  margin-top: var(--topbar-height);
+  padding: var(--space-6);
+  min-height: calc(100dvh - var(--topbar-height));
+  transition: margin-left var(--transition-base);
+}
+
+.ph-app-shell__content {
+  max-width: 1280px;
+}
+
+@media (max-width: 768px) {
+  .ph-app-shell__main {
+    margin-left: 0;
+    margin-bottom: var(--bottom-nav-height);
+    padding: var(--space-4);
+  }
+}
