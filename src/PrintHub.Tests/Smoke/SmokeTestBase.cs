@@ -3,6 +3,7 @@ using System.Text;
 using System.Text.Json;
 using FluentAssertions;
 using PrintHub.Tests.Smoke;
+using Xunit;
 
 namespace PrintHub.Tests.Smoke;
 

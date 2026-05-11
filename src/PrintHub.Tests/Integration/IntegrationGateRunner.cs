@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using FluentAssertions;
 using PrintHub.Tests.Integration;
