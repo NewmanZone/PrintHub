@@ -33,7 +33,8 @@ public class InMemoryPrintJobRepository : IPrintJobRepository
             
             if (status.HasValue)
             {
-                query = query.Where(j => j.Status == status.Value);
+                var statusStr = status.Value.ToString().ToLower();
+                query = query.Where(j => j.Status.ToLower() == statusStr);
             }
             
             if (from.HasValue)

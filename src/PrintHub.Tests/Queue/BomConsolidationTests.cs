@@ -3,6 +3,7 @@ using PrintHub.Core.Entities;
 using PrintHub.Core.Enums;
 using PrintHub.Core.Interfaces;
 using PrintHub.Infrastructure.Services;
+using PrintHub.Core.Interfaces.Repositories;
 using Xunit;
 
 namespace PrintHub.Tests.Queue;
@@ -41,7 +42,7 @@ public class BomConsolidationServiceTests
 
         var items = new List<QueueItem>
         {
-            new(productId, quantity: 5)
+            new(productId,  5)
         };
 
         // Act
@@ -119,8 +120,8 @@ public class BomConsolidationServiceTests
         // User wants: 5x Dino, 3x Cat
         var items = new List<QueueItem>
         {
-            new(productDino, quantity: 5),
-            new(productCat, quantity: 3)
+            new(productDino,  5),
+            new(productCat,  3)
         };
 
         // Act
@@ -161,7 +162,7 @@ public class BomConsolidationServiceTests
 
         var parts = new Dictionary<Guid, Part>();
         var productParts = new Dictionary<Guid, List<ProductPart>>();
-        var items = new List<QueueItem> { new(productId, quantity: 5) };
+        var items = new List<QueueItem> { new(productId,  5) };
 
         // Act
         var results = BomConsolidationService.Consolidate(shopId, items, productParts, parts);
@@ -200,7 +201,7 @@ public class BomConsolidationServiceTests
             }
         };
 
-        var items = new List<QueueItem> { new(productId, quantity: 10) };
+        var items = new List<QueueItem> { new(productId,  10) };
 
         // Act
         var results = BomConsolidationService.Consolidate(shopId, items, productParts, parts);
@@ -243,7 +244,7 @@ public class BomConsolidationServiceTests
         };
 
         // Need 10, have 3 on hand
-        var items = new List<QueueItem> { new(productId, quantity: 10) };
+        var items = new List<QueueItem> { new(productId,  10) };
 
         // Act
         var results = BomConsolidationService.Consolidate(shopId, items, productParts, parts);
@@ -270,7 +271,7 @@ public class BomConsolidationServiceTests
             }
         };
 
-        var items = new List<QueueItem> { new(productId, quantity: 5) };
+        var items = new List<QueueItem> { new(productId,  5) };
 
         // Act
         var results = BomConsolidationService.Consolidate(shopId, items, productParts, parts);
@@ -325,8 +326,8 @@ public class PrintQueueServiceTests
             CurrentVersionId = Guid.NewGuid()
         };
 
-        await _partRepo.CreateAsync(genericHook);
-        await _partRepo.CreateAsync(dinoChar);
+        await _partRepo.AddAsync(genericHook);
+        await _partRepo.AddAsync(dinoChar);
 
         var productDino = new Product
         {
@@ -340,11 +341,11 @@ public class PrintQueueServiceTests
             }
         };
 
-        await _productRepo.CreateAsync(productDino);
+        await _productRepo.AddAsync(productDino);
 
         var items = new List<QueueItem>
         {
-            new(productDino.Id, quantity: 5)
+            new(productDino.Id,  5)
         };
 
         // Act
@@ -372,26 +373,26 @@ public class PrintQueueServiceTests
         var shopId = Guid.NewGuid();
         var userId = Guid.NewGuid();
 
-        await _jobRepo.CreateAsync(new PrintJob
+        await _jobRepo.AddAsync(new PrintJob
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             ShopId = shopId,
-            Status = PrintJobStatus.Pending
+            Status = "pending"
         });
-        await _jobRepo.CreateAsync(new PrintJob
+        await _jobRepo.AddAsync(new PrintJob
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             ShopId = shopId,
-            Status = PrintJobStatus.InProgress
+            Status = "in_progress"
         });
-        await _jobRepo.CreateAsync(new PrintJob
+        await _jobRepo.AddAsync(new PrintJob
         {
             Id = Guid.NewGuid(),
             UserId = userId,
             ShopId = shopId,
-            Status = PrintJobStatus.Completed
+            Status = "completed"
         });
 
         // Act
@@ -427,9 +428,38 @@ public class MockProductRepository : IProductRepository
         return Task.FromResult(product);
     }
 
+    public Task<Product?> GetByIdWithPartsAsync(Guid id, CancellationToken ct = default)
+    {
+        _products.TryGetValue(id, out var product);
+        return Task.FromResult(product);
+    }
+
+    public Task<Product?> GetByExternalListingIdAsync(string externalListingId, Guid shopId, CancellationToken ct = default)
+    {
+        var product = _products.Values.FirstOrDefault(p => p.ExternalListingId == externalListingId && p.ShopId == shopId);
+        return Task.FromResult(product);
+    }
+
     public Task<IEnumerable<Product>> GetByShopIdAsync(Guid shopId, CancellationToken ct = default)
     {
         var products = _products.Values.Where(p => p.ShopId == shopId);
+        return Task.FromResult(products);
+    }
+
+    public Task<IEnumerable<Product>> GetByShopIdWithPartsAsync(Guid shopId, CancellationToken ct = default)
+    {
+        return GetByShopIdAsync(shopId, ct);
+    }
+
+    public Task<IEnumerable<Product>> SearchByNameAsync(Guid shopId, string searchTerm, CancellationToken ct = default)
+    {
+        var products = _products.Values.Where(p => p.ShopId == shopId && p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase));
+        return Task.FromResult(products);
+    }
+
+    public Task<IEnumerable<Product>> GetBelowReorderPointAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var products = _products.Values.Where(p => p.ShopId == shopId && p.ReorderPoint.HasValue && p.InventoryOnHand < p.ReorderPoint.Value);
         return Task.FromResult(products);
     }
 
@@ -439,9 +469,15 @@ public class MockProductRepository : IProductRepository
         return Task.FromResult(product);
     }
 
-    public Task UpdateAsync(Product product, CancellationToken ct = default)
+    public Task<Product> UpdateAsync(Product product, CancellationToken ct = default)
     {
         _products[product.Id] = product;
+        return Task.FromResult(product);
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        _products.Remove(id);
         return Task.CompletedTask;
     }
 }
@@ -450,7 +486,14 @@ public class MockPartRepository : IPartRepository
 {
     private readonly Dictionary<Guid, Part> _parts = new();
 
+
     public Task<Part?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    {
+        _parts.TryGetValue(id, out var part);
+        return Task.FromResult(part);
+    }
+
+    public Task<Part?> GetByIdWithVersionsAsync(Guid id, CancellationToken ct = default)
     {
         _parts.TryGetValue(id, out var part);
         return Task.FromResult(part);
@@ -462,10 +505,16 @@ public class MockPartRepository : IPartRepository
         return Task.FromResult(parts);
     }
 
-    public Task<Part?> GetWithProductPartsAsync(Guid partId, CancellationToken ct = default)
+    public Task<IEnumerable<Part>> GetGenericByShopIdAsync(Guid shopId, CancellationToken ct = default)
     {
-        _parts.TryGetValue(partId, out var part);
-        return Task.FromResult(part);
+        var parts = _parts.Values.Where(p => p.ShopId == shopId && p.IsGeneric);
+        return Task.FromResult(parts);
+    }
+
+    public Task<IEnumerable<Part>> GetWithLowStockAsync(Guid shopId, CancellationToken ct = default)
+    {
+        var parts = _parts.Values.Where(p => p.ShopId == shopId && p.InventoryOnHand <= 0);
+        return Task.FromResult(parts);
     }
 
     public Task<Part> AddAsync(Part part, CancellationToken ct = default)
@@ -474,9 +523,15 @@ public class MockPartRepository : IPartRepository
         return Task.FromResult(part);
     }
 
-    public Task UpdateAsync(Part part, CancellationToken ct = default)
+    public Task<Part> UpdateAsync(Part part, CancellationToken ct = default)
     {
         _parts[part.Id] = part;
+        return Task.FromResult(part);
+    }
+
+    public Task DeleteAsync(Guid id, CancellationToken ct = default)
+    {
+        _parts.Remove(id);
         return Task.CompletedTask;
     }
 }
@@ -500,6 +555,11 @@ public class MockPrintJobRepository : IPrintJobRepository
     public Task<IEnumerable<PrintJob>> GetByShopIdAsync(Guid shopId, PrintJobStatus? status = null, DateTime? from = null, DateTime? to = null, CancellationToken ct = default)
     {
         var jobs = _jobs.Values.Where(j => j.ShopId == shopId);
+        if (status.HasValue)
+        {
+            var statusStr = status.Value.ToString().ToLower();
+            jobs = jobs.Where(j => j.Status.ToLower() == statusStr);
+        }
         return Task.FromResult(jobs);
     }
 
@@ -512,6 +572,6 @@ public class MockPrintJobRepository : IPrintJobRepository
     public Task<PrintJob> UpdateAsync(PrintJob job, CancellationToken ct = default)
     {
         _jobs[job.Id] = job;
-        return Task.CompletedTask;
+        return Task.FromResult(job);
     }
 }
