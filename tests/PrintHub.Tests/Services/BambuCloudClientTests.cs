@@ -2,6 +2,7 @@ using PrintHub.Core.Interfaces.Services;
 using PrintHub.Infrastructure.Services.Bambu;
 using Moq;
 using Xunit;
+using Microsoft.Extensions.Logging;
 
 namespace PrintHub.Tests.Services;
 
