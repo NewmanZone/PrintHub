@@ -1,5 +1,6 @@
 using FluentAssertions;
 using PrintHub.Core.Configuration;
+using Xunit;
 
 namespace PrintHub.Tests;
 
