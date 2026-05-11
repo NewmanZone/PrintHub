@@ -50,15 +50,13 @@ PrintHub handles highly sensitive intellectual property: users' STL/3MF files re
 - Thumbnail generation on upload, stored separately
 ```
 
-### Auto-Purge Policy
+### File Retention Policy
 
-```
-STL/3MF files: Delete after 7 days (configurable)
-Pre-sliced files: Delete after print job completes
-Personalized files: Delete 24 hours after order fulfilled
-```
+**Source STL/3MF files** — Retained by default. Users can delete or purge at any time via the UI/API.
+**Generated/sliced files** — Short-lived by default; deleted after the print job completes.
+**Personalized files** — Short-lived by default; deleted 24 hours after the order is fulfilled (configurable per shop).
 
-Users can opt into longer retention (up to 30 days) for a fee.
+Users can opt into longer retention for generated files via shop settings.
 
 ---
 

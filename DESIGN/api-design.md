@@ -507,7 +507,7 @@ List registered printers.
       "name": "Centauri Carbon - Lab",
       "type": "Klipper",
       "model": "Centauri Carbon",
-      "printerUrl": "https://xyz.octoanywhere.com",
+      "printerUrl": "https://xyz.octoeverywhere.com",
       "status": "Online",
       "currentJobId": null,
       "isDefault": false
@@ -529,12 +529,12 @@ Register a new printer.
 }
 ```
 
-**For OctoAnywhere/Klipper:**
+**For OctoEverywhere/Klipper:**
 ```json
 {
   "type": "Klipper",
   "name": "Centauri Carbon - Lab",
-  "octoAnywhereUrl": "https://xyz.octoanywhere.com"
+  "octoEverywhereUrl": "https://xyz.octoeverywhere.com"
 }
 ```
 

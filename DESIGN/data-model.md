@@ -17,11 +17,14 @@ This allows efficient batch printing: printing 10 Product A and 5 Product B with
 User
 ├── Id: Guid (PK)
 ├── Email: string
-├── PasswordHash: string
+├── PasswordHash: string  ← REMOVED — OAuth-only (Azure AD B2C)
+├── DisplayName: string?
 ├── CreatedAt: DateTime
 ├── UpdatedAt: DateTime
 └── Shops: List<Shop>
 ```
+
+> **Auth Lock:** Azure AD B2C / OAuth-only. No `PasswordHash`, no password registration/login/reset endpoints.
 
 ### Shop
 Represents an Etsy shop connected to PrintHub.

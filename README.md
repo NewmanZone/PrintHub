@@ -12,7 +12,9 @@ PrintHub connects your Etsy store to your 3D printers, enabling print-on-demand 
 - **Etsy Integration** — Import listings, sync orders, track inventory against sales
 - **Product Management** — Organize STL/3MF files by product with version control
 - **Smart Print Queue** — Consolidate shared parts across products, batch print efficiently
-- **Multi-Printer Support** — Bambu (cloud-native) + Klipper/OctoAnywhere (bridge)
+- **Multi-Printer Support** — Bambu (cloud-native) + Klipper/OctoEverywhere (bridge)
+
+> **Design lock:** Azure AD B2C / OAuth-only auth. React + TypeScript frontend. Source STL/3MF retained by default with user purge; generated files short-lived. Adapter-based printer strategy (Bambu primary, OctoEverywhere bridge, Bambu spike experimental). Cosmos partition by `shopId`.
 
 ### Inventory & Business Intelligence
 - **Inventory Tracking** — Print count vs. sold count, auto-depletion
@@ -61,7 +63,7 @@ See [DESIGN/](DESIGN/) for full architecture documentation.
 | File Storage | Azure Blob Storage |
 | Background Jobs | Azure Functions |
 | Authentication | Azure AD B2C / JWT |
-| Printer Integration | Bambu Connect API, OctoAnywhere |
+| Printer Integration | Bambu Connect API, OctoEverywhere |
 
 ---
 
@@ -69,13 +71,20 @@ See [DESIGN/](DESIGN/) for full architecture documentation.
 
 ```
 PrintHub/
-├── DESIGN/                      # Architecture & design docs
+├── DESIGN/                      # Architecture & design docs (locked)
 │   ├── architecture.md
-│   ├── data-model.md
-│   ├── security.md
-│   ├── print-queue.md
 │   ├── api-design.md
-│   └── dotnet-structure.md
+│   ├── cosmos-design.md
+│   ├── data-model.md
+│   ├── dotnet-structure.md
+│   ├── frontend-design-system.md
+│   ├── print-queue.md
+│   ├── printer-integrations.md
+│   ├── security.md
+│   └── ui-architecture.md
+├── prototypes/                  # Static UI prototype (no backend needed)
+│   └── printhub-ui/
+│       └── index.html            # Open in any browser
 ├── src/
 │   ├── PrintHub.API/            # Web API (future)
 │   ├── PrintHub.Core/          # Domain entities, interfaces
@@ -88,9 +97,7 @@ PrintHub/
 
 ## Status
 
-**Current Phase:** Design & Planning
-
-Design documents are complete. Implementation not yet started.
+**Current Phase:** Design locked. Prototype complete. Implementation not yet started.
 
 ### Roadmap
 

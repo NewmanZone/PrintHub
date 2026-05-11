@@ -131,7 +131,7 @@ Bambu Cloud API lists all bound devices per user (`GET /v1/iot-service/api/user/
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
 | Cloud API changes or rate limits tighten | Medium | High | Abstract Bambu client behind `IBambuService` interface; make adapter swappable |
-| Bambu Lab shuts down or restricts unofficial API access | Low | High | Architect adapter layer to support alternative paths (OctoAnywhere, Klipper, official SDK later) |
+| Bambu Lab shuts down or restricts unofficial API access | Low | High | Architect adapter layer to support alternative paths (OctoEverywhere, Klipper, official SDK later) |
 | Firmware auth blocks cloud print start for unauthorized apps | Medium | High | Apply for Bambu Lab integration partner program; monitor SDK announcements |
 | 3MF composition (multi-part bed layout) is complex | Medium | Medium | Scope bed layout composition to post-MVP (#10). MVP can push one part per job. |
 | Token refresh / 2FA UX friction | Medium | Medium | Store encrypted refresh tokens; prompt user for re-auth when tokens expire |
@@ -177,7 +177,7 @@ PrintHub.Infrastructure/
 
 New interfaces needed in `PrintHub.Core`:
 - `IBambuService` — token management, printer list, job submission
-- `IPrinterAdapter` — abstraction so Bambu can be swapped for OctoAnywhere/Klipper later
+- `IPrinterAdapter` — abstraction so Bambu can be swapped for OctoEverywhere/Klipper later
 
 ---
 
@@ -203,7 +203,7 @@ These stubs are **not production code**. They compile conceptually against the p
 
 1. **Accept Bambu integration into MVP scope.** The technical path is validated, community tools exist, and the cloud-native model aligns with PrintHub's "zero local setup" goal.
 2. **Bound the scope tightly.** Single-file cloud push + polling is enough for MVP. Do not attempt local LAN control or multi-part bed composition yet.
-3. **Build behind an adapter interface.** `IPrinterAdapter` decouples Bambu from the queue engine so OctoAnywhere/Klipper can be added later without queue refactor.
+3. **Build behind an adapter interface.** `IPrinterAdapter` decouples Bambu from the queue engine so OctoEverywhere/Klipper can be added later without queue refactor.
 4. **Monitor Bambu Lab SDK announcements.** Subscribe to their blog / partner program. Plan a migration sprint when the official SDK stabilizes.
 5. **Apply for integration partner status.** Early partner access may unlock official API credentials and avoid future auth blocks.
 6. **Document token security.** Bambu tokens are 3-month bearer tokens with broad device access. Store encrypted at rest (Azure Key Vault). Never log tokens.
