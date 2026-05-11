@@ -9,11 +9,11 @@ namespace PrintHub.Tests.Visual;
 /// Visual regression tests that capture screenshots and compare against baselines
 /// </summary>
 [Collection("Visual Tests")]
-public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
+public class VisualRegressionTests : IClassFixture<VisualCheckOptions>, IAsyncDisposable
 {
     private readonly VisualCheckOptions _options;
-    private readonly IPlaywright _playwright;
-    private readonly IBrowser _browser;
+    private IPlaywright? _playwright;
+    private IBrowser? _browser;
     private readonly string _screenshotPath;
 
     public VisualRegressionTests(VisualCheckOptions options, ITestOutputHelper output)
@@ -23,18 +23,20 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
 
         if (!_options.Enabled)
         {
-            _playwright = null!;
-            _browser = null!;
             return;
         }
+    }
 
-        _playwright = Microsoft.Playwright.Playwright.Create();
-        _browser = _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+    private async Task EnsurePlaywrightAsync()
+    {
+        if (_playwright == null)
         {
-            Headless = true
-        }).GetAwaiter().GetResult();
-
-        EnsureDirectoriesExist();
+            _playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+            _browser = await _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+            {
+                Headless = true
+            });
+        }
     }
 
     private void EnsureDirectoriesExist()
@@ -64,7 +66,10 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
     {
         Skip.If(!_options.Enabled, "Visual checks are disabled");
 
-        var page = await _browser.NewPageAsync();
+        await EnsurePlaywrightAsync();
+        EnsureDirectoriesExist();
+
+        var page = await _browser!.NewPageAsync();
         var viewport = _options.Viewports.FirstOrDefault() ?? new ViewportConfig { Width = 1280, Height = 720, Name = "default" };
         await page.SetViewportSizeAsync(viewport.Width, viewport.Height);
 
@@ -90,9 +95,12 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
         Skip.If(!_options.Enabled, "Visual checks are disabled");
         Skip.If(_options.Viewports.Count < 2, "Need at least 2 viewports configured");
 
+        await EnsurePlaywrightAsync();
+        EnsureDirectoriesExist();
+
         foreach (var viewport in _options.Viewports)
         {
-            var page = await _browser.NewPageAsync();
+            var page = await _browser!.NewPageAsync();
             await page.SetViewportSizeAsync(viewport.Width, viewport.Height);
 
             try
@@ -110,12 +118,12 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
         }
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        if (_options.Enabled)
+        if (_browser != null)
         {
-            _browser.CloseAsync().GetAwaiter().GetResult();
-            _playwright.Dispose();
+            await _browser.CloseAsync();
         }
+        _playwright?.Dispose();
     }
 }

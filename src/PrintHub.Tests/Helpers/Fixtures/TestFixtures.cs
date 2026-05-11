@@ -33,23 +33,26 @@ public class SmokeTestFixture : IDisposable
 /// <summary>
 /// Shared fixture for visual checks - provides Playwright browser
 /// </summary>
-public class VisualCheckFixture : IDisposable
+public class VisualCheckFixture : IAsyncDisposable
 {
     public VisualCheckOptions Options { get; }
-    public Microsoft.Playwright.IPlaywright? Playwright { get; }
-    public Microsoft.Playwright.IBrowser? Browser { get; }
+    public Microsoft.Playwright.IPlaywright? Playwright { get; private set; }
+    public Microsoft.Playwright.IBrowser? Browser { get; private set; }
 
     public VisualCheckFixture()
     {
         Options = LoadOptions();
-        
+    }
+
+    public async Task InitializeAsync()
+    {
         if (Options.Enabled)
         {
-            Playwright = Microsoft.Playwright.Playwright.Create();
-            Browser = Playwright.Chromium.LaunchAsync(new Microsoft.Playwright.BrowserTypeLaunchOptions
+            Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
+            Browser = await Playwright.Chromium.LaunchAsync(new Microsoft.Playwright.BrowserTypeLaunchOptions
             {
                 Headless = true
-            }).GetAwaiter().GetResult();
+            });
         }
     }
 
@@ -67,9 +70,12 @@ public class VisualCheckFixture : IDisposable
         return options;
     }
 
-    public void Dispose()
+    public async ValueTask DisposeAsync()
     {
-        Browser?.CloseAsync().GetAwaiter().GetResult();
+        if (Browser != null)
+        {
+            await Browser.CloseAsync();
+        }
         Playwright?.Dispose();
     }
 }
