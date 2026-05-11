@@ -46,7 +46,10 @@ public class VisualCheckFixture : IDisposable
         if (Options.Enabled)
         {
             Playwright = Microsoft.Playwright.Playwright.Create();
-            Browser = Playwright.Chromium.LaunchAsync().GetAwaiter().GetResult();
+            Browser = Playwright.Chromium.LaunchAsync(new Microsoft.Playwright.BrowserTypeLaunchOptions
+            {
+                Headless = true
+            }).GetAwaiter().GetResult();
         }
     }
 
@@ -66,7 +69,7 @@ public class VisualCheckFixture : IDisposable
 
     public void Dispose()
     {
-        Browser?.Dispose();
+        Browser?.CloseAsync().GetAwaiter().GetResult();
         Playwright?.Dispose();
     }
 }

@@ -40,7 +40,7 @@ public static class TestHelpers
         var fullPath = Path.Combine(outputPath, fileName);
         
         Directory.CreateDirectory(outputPath);
-        await page.ScreenshotAsync(fullPath);
+        await page.ScreenshotAsync(new PageScreenshotOptions { Path = fullPath });
         
         return fullPath;
     }

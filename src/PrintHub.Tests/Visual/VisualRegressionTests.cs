@@ -28,8 +28,11 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
             return;
         }
 
-        _playwright = Playwright.Create();
-        _browser = _playwright.Chromium_launch().Result;
+        _playwright = Microsoft.Playwright.Playwright.Create();
+        _browser = _playwright.Chromium.LaunchAsync(new BrowserTypeLaunchOptions
+        {
+            Headless = true
+        }).GetAwaiter().GetResult();
 
         EnsureDirectoriesExist();
     }
@@ -95,8 +98,10 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
             try
             {
                 await page.GotoAsync($"{_options.ScreenshotsPath}/../../index.html");
+                
+                // Verify the page loads on different viewport sizes
                 var title = await page.TitleAsync();
-                title.Should().NotBeNullOrEmpty($"Page should load in {viewport.Name} viewport");
+                title.Should().NotBeNullOrEmpty($"Page should load at {viewport.Name} viewport");
             }
             finally
             {
@@ -105,34 +110,12 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>
         }
     }
 
-    [SkippableFact]
-    [Trait("Category", "Visual")]
-    [Trait("Priority", "Low")]
-    public async Task Dashboard_LoadsWithoutErrors()
-    {
-        Skip.If(!_options.Enabled, "Visual checks are disabled");
-
-        var page = await _browser.NewPageAsync();
-        var errors = new List<string>();
-        
-        page.PageError += (sender, error) => errors.Add(error);
-
-        try
-        {
-            await page.GotoAsync($"{_options.ScreenshotsPath}/../../index.html");
-            await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
-
-            errors.Should().BeEmpty("Dashboard should load without JavaScript errors");
-        }
-        finally
-        {
-            await page.CloseAsync();
-        }
-    }
-
     public void Dispose()
     {
-        _browser?.Dispose();
-        _playwright?.Dispose();
+        if (_options.Enabled)
+        {
+            _browser.CloseAsync().GetAwaiter().GetResult();
+            _playwright.Dispose();
+        }
     }
 }

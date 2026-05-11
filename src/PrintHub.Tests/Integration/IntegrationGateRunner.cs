@@ -1,7 +1,7 @@
 using System.Diagnostics;
-using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using FluentAssertions;
+using Microsoft.Extensions.Configuration;
 using PrintHub.Tests.Integration;
 using PrintHub.Tests.Smoke;
 using PrintHub.Tests.Visual;
@@ -180,18 +180,18 @@ public class IntegrationGateRunner
         return Task.FromResult(GateCheckResult.Pass("VisualChecks", "Visual check gate (manual verification required)"));
     }
 
-    private Task<GateCheckResult> EvaluateSecurityGateAsync()
+    private async Task<GateCheckResult> EvaluateSecurityGateAsync()
     {
         Console.WriteLine("🔍 Checking Security Scan Results...");
 
         if (!_options.BlockOnSecurityScan)
         {
-            return Task.FromResult(GateCheckResult.Pass("SecurityScan", "Security scan blocking is disabled"));
+            return GateCheckResult.Pass("SecurityScan", "Security scan blocking is disabled");
         }
 
         if (_options.SecurityScanPaths.Count == 0)
         {
-            return Task.FromResult(GateCheckResult.Pass("SecurityScan", "No security scans configured, assuming safe"));
+            return GateCheckResult.Pass("SecurityScan", "No security scans configured, assuming safe");
         }
 
         var criticalFindings = new List<string>();
@@ -226,16 +226,16 @@ public class IntegrationGateRunner
 
         if (criticalFindings.Any())
         {
-            return Task.FromResult(GateCheckResult.Fail(
+            return GateCheckResult.Fail(
                 "SecurityScan",
                 $"Security issues found: {criticalFindings.Count} finding(s)",
                 new Dictionary<string, object>
                 {
                     ["Findings"] = criticalFindings
-                }));
+                });
         }
 
-        return Task.FromResult(GateCheckResult.Pass("SecurityScan", "No blocking security issues found"));
+        return GateCheckResult.Pass("SecurityScan", "No blocking security issues found");
     }
 
     private Task<GateCheckResult> EvaluateCoverageGateAsync()
