@@ -49,10 +49,11 @@ public class VisualCheckFixture : IAsyncDisposable
         if (Options.Enabled)
         {
             Playwright = await Microsoft.Playwright.Playwright.CreateAsync();
-            Browser = await Playwright.Chromium.LaunchAsync(new Microsoft.Playwright.BrowserTypeLaunchOptions
-            {
-                Headless = true
-            });
+            Browser = await Playwright.Chromium.LaunchAsync(
+                new Microsoft.Playwright.BrowserTypeLaunchOptions
+                {
+                    Headless = true
+                });
         }
     }
 
@@ -66,7 +67,7 @@ public class VisualCheckFixture : IAsyncDisposable
 
         var options = new VisualCheckOptions();
         config.GetSection("VisualChecks").Bind(options);
-        
+
         return options;
     }
 
@@ -91,8 +92,11 @@ public class IntegrationTestFixture
     public IntegrationTestFixture()
     {
         Options = IntegrationGateRunner.LoadFromConfiguration();
-        TestOutputPath = Path.Combine(Path.GetTempPath(), "PrintHubTests", Guid.NewGuid().ToString());
-        
+        TestOutputPath = Path.Combine(
+            Path.GetTempPath(),
+            "PrintHubTests",
+            Guid.NewGuid().ToString());
+
         if (!Directory.Exists(TestOutputPath))
         {
             Directory.CreateDirectory(TestOutputPath);

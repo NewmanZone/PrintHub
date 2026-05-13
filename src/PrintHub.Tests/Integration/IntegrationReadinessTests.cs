@@ -26,10 +26,12 @@ public class IntegrationReadinessTests
     {
         // Assert - verify gates are properly configured
         _options.Should().NotBeNull("Integration gates should be configurable");
-        
+
         // At minimum, smoke tests and unit tests should be required
-        _options.RequireAllSmokeTestsPass.Should().BeTrue("Smoke tests should be required for integration");
-        _options.RequireUnitTestsPass.Should().BeTrue("Unit tests should be required for integration");
+        _options.RequireAllSmokeTestsPass.Should()
+            .BeTrue("Smoke tests should be required for integration");
+        _options.RequireUnitTestsPass.Should()
+            .BeTrue("Unit tests should be required for integration");
     }
 
     [Fact]

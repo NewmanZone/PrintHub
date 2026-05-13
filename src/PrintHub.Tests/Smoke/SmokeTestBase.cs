@@ -44,7 +44,7 @@ public abstract class SmokeTestBase
         try
         {
             var request = new HttpRequestMessage(method, path);
-            
+
             if (headers != null)
             {
                 foreach (var header in headers)
@@ -93,9 +93,15 @@ public abstract class SmokeTestBase
         return await TestEndpointAsync("Health Check", "/health", HttpMethod.Get, 200);
     }
 
-    protected async Task<SmokeTestResult> TestUnauthenticatedEndpointAsync(string path, int expectedStatus)
+    protected async Task<SmokeTestResult> TestUnauthenticatedEndpointAsync(
+        string path,
+        int expectedStatus)
     {
-        return await TestEndpointAsync($"Unauthenticated Access to {path}", path, HttpMethod.Get, expectedStatus);
+        return await TestEndpointAsync(
+            $"Unauthenticated Access to {path}",
+            path,
+            HttpMethod.Get,
+            expectedStatus);
     }
 }
 

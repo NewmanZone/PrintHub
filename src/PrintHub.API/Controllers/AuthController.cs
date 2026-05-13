@@ -42,9 +42,9 @@ public class AuthController : ControllerBase
         // For development, accept any non-empty credentials
         // In production, validate against the user store
         var userId = "user-" + request.Email.GetHashCode();
-        
+
         var token = GenerateJwtToken(userId, request.Email);
-        
+
         return Ok(new LoginResponse
         {
             Token = token,
@@ -70,7 +70,7 @@ public class AuthController : ControllerBase
         _logger.LogInformation("Registration attempt for {Email}", request.Email);
 
         var userId = "user-" + Guid.NewGuid().ToString("N");
-        
+
         return Created($"/api/users/{userId}", new RegisterResponse
         {
             UserId = userId,
@@ -81,9 +81,9 @@ public class AuthController : ControllerBase
 
     private string GenerateJwtToken(string userId, string email)
     {
-        var secret = _configuration["Auth:Jwt:Secret"] 
+        var secret = _configuration["Auth:Jwt:Secret"]
             ?? throw new InvalidOperationException("JWT secret not configured");
-        
+
         var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secret));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 

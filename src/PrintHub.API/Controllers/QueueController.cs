@@ -51,7 +51,7 @@ public class QueueController : ControllerBase
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("Adding {Count} items to queue for user {UserId}", 
+        _logger.LogInformation("Adding {Count} items to queue for user {UserId}",
             request.Items.Count, userId);
 
         return Created("/api/queue/status", new QueueAddResponse

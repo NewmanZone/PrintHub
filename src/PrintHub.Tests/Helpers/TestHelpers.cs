@@ -38,10 +38,10 @@ public static class TestHelpers
     {
         var fileName = $"{testName}_{DateTime.UtcNow:yyyyMMdd_HHmmss}.png";
         var fullPath = Path.Combine(outputPath, fileName);
-        
+
         Directory.CreateDirectory(outputPath);
         await page.ScreenshotAsync(new PageScreenshotOptions { Path = fullPath });
-        
+
         return fullPath;
     }
 

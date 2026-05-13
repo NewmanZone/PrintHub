@@ -71,7 +71,7 @@ public class SmokeTestRunner
         try
         {
             var request = new HttpRequestMessage(
-                new HttpMethod(endpoint.Method), 
+                new HttpMethod(endpoint.Method),
                 endpoint.Path);
 
             if (endpoint.Headers != null)
@@ -84,7 +84,10 @@ public class SmokeTestRunner
 
             if (endpoint.Body != null && endpoint.Method != "GET")
             {
-                request.Content = new StringContent(endpoint.Body, System.Text.Encoding.UTF8, "application/json");
+                request.Content = new StringContent(
+                    endpoint.Body,
+                    System.Text.Encoding.UTF8,
+                    "application/json");
             }
 
             var response = await httpClient.SendAsync(request);
@@ -97,7 +100,9 @@ public class SmokeTestRunner
                 Endpoint = $"{endpoint.Method} {endpoint.Path}",
                 Success = success,
                 StatusCode = statusCode,
-                ErrorMessage = success ? null : $"Expected {endpoint.ExpectedStatus}, got {statusCode}",
+                ErrorMessage = success
+                    ? null
+                    : $"Expected {endpoint.ExpectedStatus}, got {statusCode}",
                 ResponseBody = await response.Content.ReadAsStringAsync(),
                 ExecutedAt = DateTime.UtcNow
             };

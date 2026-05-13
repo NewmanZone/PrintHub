@@ -14,7 +14,7 @@ public abstract class WorkerBase : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("{WorkerName} starting at: {Time}", 
+        _logger.LogInformation("{WorkerName} starting at: {Time}",
             GetType().Name, DateTime.UtcNow);
 
         while (!stoppingToken.IsCancellationRequested)

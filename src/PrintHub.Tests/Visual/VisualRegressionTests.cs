@@ -70,13 +70,14 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>, IAsyncDi
         EnsureDirectoriesExist();
 
         var page = await _browser!.NewPageAsync();
-        var viewport = _options.Viewports.FirstOrDefault() ?? new ViewportConfig { Width = 1280, Height = 720, Name = "default" };
+        var viewport = _options.Viewports.FirstOrDefault()
+            ?? new ViewportConfig { Width = 1280, Height = 720, Name = "default" };
         await page.SetViewportSizeAsync(viewport.Width, viewport.Height);
 
         try
         {
             await page.GotoAsync($"{_options.ScreenshotsPath}/../../index.html");
-            
+
             // For now, just verify the page loads
             var title = await page.TitleAsync();
             title.Should().NotBeNullOrEmpty();
@@ -106,10 +107,11 @@ public class VisualRegressionTests : IClassFixture<VisualCheckOptions>, IAsyncDi
             try
             {
                 await page.GotoAsync($"{_options.ScreenshotsPath}/../../index.html");
-                
+
                 // Verify the page loads on different viewport sizes
                 var title = await page.TitleAsync();
-                title.Should().NotBeNullOrEmpty($"Page should load at {viewport.Name} viewport");
+                title.Should()
+                    .NotBeNullOrEmpty($"Page should load at {viewport.Name} viewport");
             }
             finally
             {
