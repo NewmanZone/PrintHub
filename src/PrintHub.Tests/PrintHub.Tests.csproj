@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <NoWarn>$(NoWarn);NU1902;CA1001;CA1051;CA1707;CA1805;CA1816;CA1822;CA1860;CA1861;CA1869</NoWarn>
   </PropertyGroup>
 
   <ItemGroup>
