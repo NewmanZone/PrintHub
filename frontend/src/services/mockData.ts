@@ -482,7 +482,7 @@ export const mockAlerts: WorkspaceAlert[] = [
     message: 'Unicorn Wall Hook is out of stock. 8 units needed.',
     action: {
       label: 'Print Now',
-      href: '/jobs/new?product=prod_004&qty=8',
+      href: '/jobs?product=prod_004&qty=8',
     },
     createdAt: '2025-05-10T12:00:00Z',
   },
@@ -493,7 +493,7 @@ export const mockAlerts: WorkspaceAlert[] = [
     message: 'Dino Wall Hook stock (3) is below reorder point (6). Print 10 more?',
     action: {
       label: 'Print 10',
-      href: '/jobs/new?product=prod_001&qty=10',
+      href: '/jobs?product=prod_001&qty=10',
     },
     createdAt: '2025-05-10T10:00:00Z',
   },
@@ -504,7 +504,7 @@ export const mockAlerts: WorkspaceAlert[] = [
     message: 'Order #55553 for Amanda Lee has been shipped.',
     action: {
       label: 'View Order',
-      href: '/orders/ord_005',
+      href: '/orders?selected=ord_005',
     },
     createdAt: '2025-05-09T16:00:00Z',
   },

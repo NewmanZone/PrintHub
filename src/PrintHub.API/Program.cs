@@ -46,7 +46,12 @@ builder.Services.AddSwaggerGen(options =>
 });
 
 // Configure JWT Authentication
-var jwtSecret = builder.Configuration["Auth:Jwt:Secret"] ?? "default-secret-key-minimum-32-characters";
+var jwtSecret = builder.Configuration["Auth:Jwt:Secret"];
+if (string.IsNullOrWhiteSpace(jwtSecret))
+{
+    throw new InvalidOperationException("Auth:Jwt:Secret must be configured.");
+}
+
 var jwtIssuer = builder.Configuration["Auth:Jwt:Issuer"] ?? "PrintHub";
 var jwtAudience = builder.Configuration["Auth:Jwt:Audience"] ?? "PrintHubApp";
 
@@ -102,7 +107,14 @@ app.UseAuthorization();
 app.MapControllers();
 
 // Map health endpoint at root level for easier access
-app.MapGet("/", () => Results.Redirect("/swagger")).ExcludeFromDescription();
+app.MapGet("/", (IHostEnvironment environment) =>
+{
+    IResult result = environment.IsDevelopment()
+        ? Results.Redirect("/swagger")
+        : Results.Ok(new { status = "ok", service = "PrintHub.API" });
+    return result;
+})
+    .ExcludeFromDescription();
 
 app.Run();
 

@@ -51,8 +51,10 @@ public class VisualCheckRunner
             // This is a placeholder for the actual implementation
             if (_options.SaveBaselineImages && !File.Exists(baselinePath))
             {
-                // Save as baseline if we're generating new tests
-                File.Copy(screenshotPath, baselinePath, overwrite: true);
+                if (File.Exists(screenshotPath))
+                {
+                    File.Copy(screenshotPath, baselinePath, overwrite: true);
+                }
             }
 
             // In real implementation, compare screenshots here

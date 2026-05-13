@@ -74,9 +74,11 @@ public class IntegrationGateRunner
         report.TotalGates = report.GateResults.Count;
         report.PassedGates = report.GateResults.Count(g => g.Passed);
         report.FailedGates = report.GateResults.Count(g => !g.Passed);
-        report.IsReady = _options.RequireAllSmokeTestsPass
-            ? report.GateResults.Where(g => g.GateName != "VisualChecks").All(g => g.Passed)
-            : report.GateResults.All(g => g.Passed);
+        var blockingGates = report.GateResults.Where(g =>
+            (_options.RequireAllSmokeTestsPass || g.GateName != "SmokeTests")
+            && (_options.RequireUnitTestsPass || g.GateName != "UnitTests")
+            && (_options.RequireVisualChecksPass || g.GateName != "VisualChecks"));
+        report.IsReady = blockingGates.All(g => g.Passed);
 
         // Save report
         await report.SaveToFileAsync(_outputPath);
@@ -133,7 +135,7 @@ public class IntegrationGateRunner
                 StartInfo = new ProcessStartInfo
                 {
                     FileName = "dotnet",
-                    Arguments = "test --no-build --verbosity quiet --logger \"console;verbosity=minimal\"",
+                    Arguments = "test src/PrintHub.Tests/PrintHub.Tests.csproj --no-build --verbosity quiet --filter \"Category!=Integration&Category!=Smoke&Category!=Visual\" --logger \"console;verbosity=minimal\"",
                     RedirectStandardOutput = true,
                     RedirectStandardError = true,
                     UseShellExecute = false,
@@ -210,7 +212,7 @@ public class IntegrationGateRunner
                 var findings = ParseSecurityFindings(content);
 
                 var severeFindings = findings
-                    .Where(f => GetSeverityLevel(f) >= (int)_options.MaxAcceptableSeverity)
+                    .Where(f => GetSeverityLevel(f) > (int)_options.MaxAcceptableSeverity)
                     .ToList();
 
                 if (severeFindings.Any())
@@ -254,9 +256,10 @@ public class IntegrationGateRunner
 
     private List<string> ParseSecurityFindings(string content)
     {
-        // Placeholder for security scan result parsing
-        // Would support OWASP ZAP, Snyk, SonarQube, etc.
-        return new List<string>();
+        return content
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Where(line => GetSeverityLevel(line) > 0)
+            .ToList();
     }
 
     private int GetSeverityLevel(string finding)

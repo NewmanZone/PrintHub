@@ -8,13 +8,14 @@ namespace PrintHub.Tests.Smoke;
 /// Integration smoke tests that verify core API endpoints are accessible
 /// </summary>
 [Collection("Smoke Tests")]
-public class ApiSmokeTests : IClassFixture<SmokeTestOptions>
+[Trait("Category", "Smoke")]
+public class ApiSmokeTests
 {
     private readonly SmokeTestOptions _options;
 
-    public ApiSmokeTests(SmokeTestOptions options)
+    public ApiSmokeTests()
     {
-        _options = options;
+        _options = SmokeTestRunner.LoadFromConfiguration();
     }
 
     [Fact]

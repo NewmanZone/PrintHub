@@ -65,13 +65,15 @@ jobs:
         run: dotnet build PrintHub.sln --configuration Release --no-restore
 
       - name: Run Smoke Tests
+        env:
+          SmokeTests__ApiBaseUrl: ${{ needs.prerequisites.outputs.api_url }}
         run: |
           echo "API URL: ${{ needs.prerequisites.outputs.api_url }}"
           dotnet test src/PrintHub.Tests/PrintHub.Tests.csproj \
             --configuration Release \
             --no-build \
             --filter "Category=Smoke" \
-            --logger "console;verbosity=detailed" || echo "Smoke tests completed"
+            --logger "console;verbosity=detailed"
 
       - name: Upload Results
         uses: actions/upload-artifact@v4
@@ -182,20 +184,21 @@ jobs:
           echo ""
           
           # Determine final decision
-          $gate_status = "APPROVED"
-          if (needs.smoke-tests.result != 'success') { $gate_status = "BLOCKED" }
-          if (needs.unit-tests.result != 'success') { $gate_status = "BLOCKED" }
+          gate_status="APPROVED"
+          if [[ "${{ needs.smoke-tests.result }}" != "success" ]]; then gate_status="BLOCKED"; fi
+          if [[ "${{ needs.unit-tests.result }}" != "success" ]]; then gate_status="BLOCKED"; fi
+          if [[ "${{ needs.integration-readiness.result }}" != "success" ]]; then gate_status="BLOCKED"; fi
           
           echo "### 🎯 Final Decision: **$gate_status**"
           
-          if ($gate_status -eq "APPROVED") {
+          if [[ "$gate_status" == "APPROVED" ]]; then
             echo ""
             echo "✅ All critical gates passed. Integration can proceed."
-          } else {
+          else
             echo ""
             echo "❌ Some gates failed. Please review the failures above."
             exit 1
-          }
+          fi
 
       - name: Upload All Reports
         uses: actions/upload-artifact@v4

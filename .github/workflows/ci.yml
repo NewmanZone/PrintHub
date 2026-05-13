@@ -78,7 +78,7 @@ jobs:
             --configuration Release \
             --no-build \
             --filter "Category=Smoke" \
-            --verbosity normal || echo "Smoke tests completed (some may be skipped without running API)"
+            --verbosity normal
 
   # Job 3: Code Quality
   code-quality:
@@ -99,10 +99,10 @@ jobs:
         run: dotnet restore PrintHub.sln
 
       - name: Check Formatting
-        run: dotnet format --verify-no-changes PrintHub.sln --verbosity diagnostic || echo "Formatting issues found"
+        run: dotnet format --verify-no-changes PrintHub.sln --verbosity diagnostic
 
       - name: Run Static Analysis
-        run: dotnet build PrintHub.sln --configuration Release --no-restore /p:TreatWarningsAsErrors=true /p:AnalysisMode=recommended || echo "Static analysis completed"
+        run: dotnet build PrintHub.sln --configuration Release --no-restore /p:TreatWarningsAsErrors=true /p:AnalysisMode=recommended
 
   # Job 4: Security Scan
   security:

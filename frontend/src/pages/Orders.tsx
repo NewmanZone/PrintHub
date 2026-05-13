@@ -163,7 +163,7 @@ const Orders: React.FC = () => {
                       </td>
                       <td>
                         {order.printJobId ? (
-                          <a href={`/jobs/${order.printJobId}`} className="text-sm">
+                          <a href={`/jobs?selected=${order.printJobId}`} className="text-sm">
                             {order.printJobId.slice(0, 12)}...
                           </a>
                         ) : (

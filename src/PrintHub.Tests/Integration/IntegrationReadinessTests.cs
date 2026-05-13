@@ -8,6 +8,7 @@ namespace PrintHub.Tests.Integration;
 /// Integration tests that verify the complete system meets readiness gates
 /// </summary>
 [Collection("Integration Tests")]
+[Trait("Category", "Integration")]
 public class IntegrationReadinessTests
 {
     private readonly IntegrationGateOptions _options;
