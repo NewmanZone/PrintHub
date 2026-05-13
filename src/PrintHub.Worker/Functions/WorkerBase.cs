@@ -5,7 +5,19 @@ namespace PrintHub.Worker.Functions;
 
 public abstract class WorkerBase : BackgroundService
 {
-    protected readonly ILogger _logger;
+    private static readonly Action<ILogger, string, DateTime, Exception?> LogWorkerStarting =
+        LoggerMessage.Define<string, DateTime>(
+            LogLevel.Information,
+            new EventId(1, nameof(LogWorkerStarting)),
+            "{WorkerName} starting at: {Time}");
+
+    private static readonly Action<ILogger, string, Exception?> LogWorkerError =
+        LoggerMessage.Define<string>(
+            LogLevel.Error,
+            new EventId(2, nameof(LogWorkerError)),
+            "Error in {WorkerName}");
+
+    private readonly ILogger _logger;
 
     protected WorkerBase(ILogger logger)
     {
@@ -14,8 +26,7 @@ public abstract class WorkerBase : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        _logger.LogInformation("{WorkerName} starting at: {Time}",
-            GetType().Name, DateTime.UtcNow);
+        LogWorkerStarting(_logger, GetType().Name, DateTime.UtcNow, null);
 
         while (!stoppingToken.IsCancellationRequested)
         {
@@ -25,7 +36,7 @@ public abstract class WorkerBase : BackgroundService
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Error in {WorkerName}", GetType().Name);
+                LogWorkerError(_logger, GetType().Name, ex);
             }
 
             await Task.Delay(TimeSpan.FromMinutes(1), stoppingToken);

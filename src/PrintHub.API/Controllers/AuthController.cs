@@ -10,6 +10,18 @@ namespace PrintHub.API.Controllers;
 [Route("api/[controller]")]
 public class AuthController : ControllerBase
 {
+    private static readonly Action<ILogger, string, Exception?> LogLoginAttempt =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(1, nameof(LogLoginAttempt)),
+            "Login attempt for {Email}");
+
+    private static readonly Action<ILogger, string, Exception?> LogRegistrationAttempt =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(2, nameof(LogRegistrationAttempt)),
+            "Registration attempt for {Email}");
+
     private readonly ILogger<AuthController> _logger;
     private readonly IConfiguration _configuration;
 
@@ -37,7 +49,7 @@ public class AuthController : ControllerBase
 
         // TODO: Validate against user database
         // This is a placeholder for actual authentication logic
-        _logger.LogInformation("Login attempt for {Email}", request.Email);
+        LogLoginAttempt(_logger, request.Email, null);
 
         // For development, accept any non-empty credentials
         // In production, validate against the user store
@@ -67,7 +79,7 @@ public class AuthController : ControllerBase
         }
 
         // TODO: Create user in database
-        _logger.LogInformation("Registration attempt for {Email}", request.Email);
+        LogRegistrationAttempt(_logger, request.Email, null);
 
         var userId = "user-" + Guid.NewGuid().ToString("N");
 

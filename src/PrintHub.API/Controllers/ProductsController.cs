@@ -9,6 +9,24 @@ namespace PrintHub.API.Controllers;
 [Authorize]
 public class ProductsController : ControllerBase
 {
+    private static readonly Action<ILogger, string?, Exception?> LogGettingProducts =
+        LoggerMessage.Define<string?>(
+            LogLevel.Information,
+            new EventId(1, nameof(LogGettingProducts)),
+            "Getting products for user {UserId}");
+
+    private static readonly Action<ILogger, string, Exception?> LogGettingProduct =
+        LoggerMessage.Define<string>(
+            LogLevel.Information,
+            new EventId(2, nameof(LogGettingProduct)),
+            "Getting product {ProductId}");
+
+    private static readonly Action<ILogger, string?, Exception?> LogCreatingProduct =
+        LoggerMessage.Define<string?>(
+            LogLevel.Information,
+            new EventId(3, nameof(LogCreatingProduct)),
+            "Creating product for user {UserId}");
+
     private readonly ILogger<ProductsController> _logger;
 
     public ProductsController(ILogger<ProductsController> logger)
@@ -25,7 +43,7 @@ public class ProductsController : ControllerBase
     public IActionResult GetProducts()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("Getting products for user {UserId}", userId);
+        LogGettingProducts(_logger, userId, null);
 
         // TODO: Fetch from database
         var products = new List<ProductResponse>
@@ -45,7 +63,7 @@ public class ProductsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public IActionResult GetProduct(string id)
     {
-        _logger.LogInformation("Getting product {ProductId}", id);
+        LogGettingProduct(_logger, id, null);
 
         // TODO: Fetch from database
         return Ok(new ProductResponse
@@ -71,7 +89,7 @@ public class ProductsController : ControllerBase
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("Creating product for user {UserId}", userId);
+        LogCreatingProduct(_logger, userId, null);
 
         var product = new ProductResponse
         {

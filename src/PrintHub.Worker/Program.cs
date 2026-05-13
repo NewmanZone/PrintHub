@@ -3,6 +3,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
+namespace PrintHub.Worker;
+
 public static class Program
 {
     public static void Main(string[] args)

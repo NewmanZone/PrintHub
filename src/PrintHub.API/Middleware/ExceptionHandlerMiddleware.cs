@@ -5,6 +5,12 @@ namespace PrintHub.API.Middleware;
 /// </summary>
 public class ExceptionHandlerMiddleware
 {
+    private static readonly Action<ILogger, Exception?> LogUnhandledException =
+        LoggerMessage.Define(
+            LogLevel.Error,
+            new EventId(1, nameof(LogUnhandledException)),
+            "Unhandled exception occurred");
+
     private readonly RequestDelegate _next;
     private readonly ILogger<ExceptionHandlerMiddleware> _logger;
 
@@ -22,7 +28,7 @@ public class ExceptionHandlerMiddleware
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, "Unhandled exception occurred");
+            LogUnhandledException(_logger, ex);
             await HandleExceptionAsync(context, ex);
         }
     }

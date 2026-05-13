@@ -9,6 +9,18 @@ namespace PrintHub.API.Controllers;
 [Authorize]
 public class QueueController : ControllerBase
 {
+    private static readonly Action<ILogger, string?, Exception?> LogGettingQueueStatus =
+        LoggerMessage.Define<string?>(
+            LogLevel.Information,
+            new EventId(1, nameof(LogGettingQueueStatus)),
+            "Getting queue status for user {UserId}");
+
+    private static readonly Action<ILogger, int, string?, Exception?> LogAddingItems =
+        LoggerMessage.Define<int, string?>(
+            LogLevel.Information,
+            new EventId(2, nameof(LogAddingItems)),
+            "Adding {Count} items to queue for user {UserId}");
+
     private readonly ILogger<QueueController> _logger;
 
     public QueueController(ILogger<QueueController> logger)
@@ -25,7 +37,7 @@ public class QueueController : ControllerBase
     public IActionResult GetQueueStatus()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("Getting queue status for user {UserId}", userId);
+        LogGettingQueueStatus(_logger, userId, null);
 
         return Ok(new QueueStatusResponse
         {
@@ -45,14 +57,13 @@ public class QueueController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public IActionResult AddToQueue([FromBody] AddToQueueRequest request)
     {
-        if (request.Items == null || !request.Items.Any())
+        if (request.Items == null || request.Items.Count == 0)
         {
             return BadRequest(new { error = "Queue items are required" });
         }
 
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        _logger.LogInformation("Adding {Count} items to queue for user {UserId}",
-            request.Items.Count, userId);
+        LogAddingItems(_logger, request.Items.Count, userId, null);
 
         return Created("/api/queue/status", new QueueAddResponse
         {
