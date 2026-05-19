@@ -2,30 +2,32 @@ name: CI
 
 on:
   push:
-    branches: [ main, fix/*, feat/* ]
-  pull_request:
     branches: [ main ]
-
-env:
-  DOTNET_VERSION: '8.0.x'
+  pull_request:
 
 jobs:
-  build:
+  build-and-test:
     runs-on: ubuntu-latest
-    
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Setup .NET
-      uses: actions/setup-dotnet@v4
-      with:
-        dotnet-version: ${{ env.DOTNET_VERSION }}
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
 
-    - name: Restore dependencies
-      run: dotnet restore PrintHub.sln
+      - name: Restore
+        run: dotnet restore PrintHub.sln
 
-    - name: Build
-      run: dotnet build PrintHub.sln --no-restore --configuration Release
+      - name: Build
+        run: dotnet build PrintHub.sln --no-restore --configuration Release
 
-    - name: Run tests
-      run: dotnet test PrintHub.sln --no-build --configuration Release --verbosity normal
+      - name: Test
+        run: dotnet test PrintHub.sln --no-build --configuration Release --verbosity normal
+
+  smoke-test:
+    needs: build-and-test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Smoke test placeholder
+        run: echo "smoke-test placeholder until API deployment exists"

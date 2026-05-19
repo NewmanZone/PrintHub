@@ -1,27 +1,20 @@
-# Build results
-[Bb]in/
-[Oo]bj/
-
-# .NET Core
-*.user
-*.userosscache
-*.sln.docstates
-*.suo
-*.cache
+# .NET build outputs
+bin/
+obj/
 
 # IDE
 .vs/
 .vscode/
-.idea/
-*.swp
+*.user
+*.suo
 
 # Test results
 TestResults/
 *.trx
 
 # NuGet
-*.nupkg
 packages/
+*.nupkg
 
 # OS
 .DS_Store
