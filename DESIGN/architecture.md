@@ -7,7 +7,7 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
 ## Goals
 
 - **Zero local setup** for Bambu printers (cloud-native integration)
-- **Guided onboarding** for other printers (OctoAnywhere bridge instructions)
+- **Guided onboarding** for other printers (OctoEverywhere bridge instructions)
 - **Security-first** — STL/3MF files are ephemeral assets
 - **Business intelligence** — help sellers optimize inventory and pricing
 - **Personalized orders** — handle customizations from Etsy orders seamlessly
@@ -40,7 +40,7 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
     └─────────────┘      └────────────┘       └─────────────┘
            │
     ┌──────┴──────┐
-    │ OctoAnywhere│
+    │ OctoEverywhere│
     │  (Other     │
     │  Printers)  │
     └─────────────┘
@@ -66,7 +66,7 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
 - Azure Blob Storage integration
 - Bambu Connect API client
 - Etsy API client
-- OctoAnywhere API client
+- OctoEverywhere API client
 
 ### 4. PrintHub.Worker
 - Azure Functions for background jobs
@@ -94,7 +94,7 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
 
 ## Security Considerations
 
-- **Files never stored long-term** — auto-purge after slicing (configurable)
+- **Source STL/3MF files retained by default** — user-controlled purge; generated files are short-lived by default
 - **Encryption at rest** — Azure Storage with customer-managed keys
 - **Signed URLs** — time-limited access to STL/3MF files
 - **Ephemeral compute** — slicing in isolated containers
@@ -127,7 +127,7 @@ See [security.md](./security.md) for full details.
 |---------|------------------------|--------------------------------|
 | Cloud-native | ✅ Bambu Connect API | ❌ Requires local bridge |
 | Zero local setup | ✅ | ❌ |
-| OctoAnywhere bridge | N/A | ✅ Instructions provided |
+| OctoEverywhere bridge | N/A | ✅ Instructions provided |
 | Full feature support | ✅ | ✅ (via bridge) |
 | Future: custom firmware | N/A | Possible |
 

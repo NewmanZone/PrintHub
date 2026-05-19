@@ -5,7 +5,7 @@
 The print queue is the core workflow. It transforms a list of "I want to print X of Product Y" into optimized print jobs, accounting for:
 - Shared/generic parts (batch print once, use across multiple products)
 - Part versions (use the current approved version)
-- Printer capabilities (Bambu vs. OctoAnywhere)
+- Printer capabilities (Bambu vs. OctoEverywhere)
 - Print time estimates
 
 ---
@@ -53,7 +53,7 @@ The print queue is the core workflow. It transforms a list of "I want to print X
 │                        PRINTER                                    │
 │                                                                  │
 │  Bambu: Push directly via Bambu Connect API                     │
-│  OctoAnywhere: Send to user's Pi bridge                         │
+│  OctoEverywhere: Send to user's Pi bridge                         │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -367,4 +367,4 @@ The print queue should be mobile-friendly since sellers often check status on th
 
 Status updates come from:
 - **Bambu printers**: WebSocket connection via Bambu Connect
-- **OctoAnywhere**: Polling user's Pi endpoint
+- **OctoEverywhere**: Polling user's Pi endpoint
