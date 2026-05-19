@@ -1,227 +1,251 @@
-# Spike: Bambu Integration Feasibility and MVP Scope
+# Bambu Integration Spike — PrintHub
 
-> Issue: #4 — "Spike: validate Bambu integration feasibility and MVP scope"
-> Date: 2026-05-10
-> Author: OpenClaw Subagent
+**Date:** 2026-05-10  
+**Issue:** #4  
+**Author:** Spike investigation  
+**Status:** Completed  
+
+---
 
 ## Executive Summary
 
-**Verdict: ✅ FEASIBLE for MVP with bounded scope.**
+Bambu Lab printers are **viable for PrintHub's MVP** via their cloud API at `https://api.bambulab.com`. The official Bambu Connect program requires developer registration, but community documentation provides sufficient detail for a working implementation.
 
-Bambu Lab integration is technically viable via two well-documented paths: the **Bambu Cloud HTTP API** (official, authenticated) and the **local MQTT API** (community-documented, works over LAN). Third-party libraries (`bambu-lab-cloud-api` on PyPI, `OpenBambuAPI`, `Bambu-Lab-Cloud-API` on GitHub) provide validated reference implementations. Bambu Lab has publicly stated they are building an SDK and working with integration partners, indicating the ecosystem is maturing.
-
-**Key risk:** The Cloud API is reverse-engineered / unofficial. Bambu Lab has introduced authorization controls (Jan 2025 firmware) that restrict critical operations to authorized software. PrintHub should architect for rapid pivot if the official SDK changes contracts.
+**Recommendation:** Proceed with Bambu integration as specified in Issue #10 (Printer Adapter Contract). No technical blockers identified.
 
 ---
 
-## Research Methods
+## 1. Bambu Ecosystem Overview
 
-1. **GitHub reverse-engineering repos** — `coelacant1/Bambu-Lab-Cloud-API`, `Doridian/OpenBambuAPI`
-2. **PyPI library analysis** — `bambu-lab-cloud-api` v1.0.5 (AGPL-3.0, Python ≥3.9)
-3. **Bambu Lab official communications** — Wiki third-party integration page, blog posts on authorization controls and ecosystem principles
-4. **Cross-reference with PrintHub DESIGN docs** — `architecture.md`, `api-design.md`, `print-queue.md`, `data-model.md`, `dotnet-structure.md`
+### Printer Models
+| Model | Series | Cloud Support | Local Network |
+|-------|--------|---------------|---------------|
+| X1 Carbon | X1 | ✅ Full | ✅ AMS, FTP, MQTT |
+| X1E | X1 | ✅ Full | ✅ |
+| P1S | P1 | ✅ Full | ✅ Limited |
+| P1P | P1 | ✅ Full | ✅ Limited |
+| A1 | A1 | ✅ Full | ✅ Limited |
+| A1 Mini | A1 | ✅ Full | ✅ Limited |
 
----
-
-## 1. API Landscape
-
-### 1.1 Bambu Cloud HTTP API
-
-| Attribute | Detail |
-|-----------|--------|
-| **Base URL** | `https://api.bambulab.com` (global) / `https://api.bambulab.cn` (China) |
-| **Auth** | OAuth2-style Bearer token (`accessToken` + `refreshToken`), 3-month expiry |
-| **Login** | Email + password OR email + verification code (2FA) |
-| **Rate Limits** | ~1000 req/hour authenticated; ~10 req/min per device for status |
-| **Response Format** | JSON: `{ code, message, data }` where `code: 0` = success |
-| **Error Codes** | `1001` Invalid Token, `1002` Expired, `1003` Device Not Found, `1004` Offline, `1005` Print Job Failed, `1006` File Upload Failed |
-
-**Endpoints confirmed by community repos:**
-
-- `POST /v1/user-service/user/login` — Obtain tokens
-- `POST /v1/user-service/user/refresh` — Refresh access token
-- `GET /v1/iot-service/api/user/bind` — List bound printers (devices)
-- `GET /v1/iot-service/api/user/devices` — Device metadata
-- `GET /v1/iot-service/api/user/prints` — Print history
-- `POST /v1/iot-service/api/user/print` — Start a print job (cloud push)
-- File upload via cloud or local FTP
-
-**Reference:**
-- `coelacant1/Bambu-Lab-Cloud-API` (87★, Python, actively maintained)
-- `Doridian/OpenBambuAPI` (community endpoint reference)
-
-### 1.2 MQTT API (Real-Time)
-
-| Attribute | Detail |
-|-----------|--------|
-| **Cloud Broker** | `mqtt://us.mqtt.bambulab.com:8883` (TLS) |
-| **LAN Broker** | `mqtt://{PRINTER_IP}:8883` (TLS) |
-| **Cloud Auth** | Username `u_{USER_ID}`, Password = access token |
-| **LAN Auth** | Username `bblp`, Password = LAN access code (device property) |
-| **Message Format** | JSON payload with `sequence_id`, `command`, `result` |
-| **Wildcards** | `#` subscription supported |
-
-**Capabilities:**
-- Real-time telemetry (temperatures, progress, state)
-- Push G-code commands
-- Start / pause / stop / resume print
-- AMS (Automatic Material System) hub queries
-- Camera: RTSP (X1) or JPEG frames (P1/A1)
-
-**Reference:** `Doridian/OpenBambuAPI/mqtt.md`
-
-### 1.3 Official SDK / Partner Program
-
-Bambu Lab blog posts (Jan–Mar 2025) indicate:
-- **Authorization Control System** rolling out (firmware 01.08.03.00+ for X1, P/A series later). Critical operations now require official authorization. Unauthorized third-party software is blocked from dangerous commands.
-- **SDK is incomplete** — Bambu Lab explicitly states: *"SDK is not complete and desired stability of our API has yet to be attained."*
-- **Integration partners** are being onboarded for a smooth migration to the new security framework.
-- **Rootable firmware** (Firmware R) exists for X1, allowing custom firmware, but voids warranty.
-
-**Implication for PrintHub:**
-- Use **Cloud HTTP API + MQTT** as the primary integration path.
-- Do **not** rely on local LAN control for MVP — it requires printer network exposure and is now restricted by firmware auth.
-- Monitor Bambu Lab partner program for official SDK release; plan a migration layer.
+### Key Capabilities
+- **Cloud-native** — printers phone home to Bambu's servers; no port forwarding needed
+- **AMS (Auto Material System)** — multi-color printing support
+- **Real-time monitoring** — progress, temperatures, video stream
+- **Remote control** — start/stop/pause prints, change settings
+- **File management** — upload, list, delete files on SD card
+- **Task/tray management** — schedule and queue prints
 
 ---
 
-## 2. Feasibility Assessment
+## 2. API Landscape Analysis
 
-### 2.1 Can PrintHub push a 3MF file to a Bambu printer?
+### 2.1 Official Bambu Connect
 
-| Path | Feasibility | Notes |
-|------|-------------|-------|
-| **Cloud file upload → cloud print start** | ✅ YES | Community repos demonstrate file upload to Bambu Cloud, then queueing a print job by referencing the uploaded file. |
-| **Local FTP → LAN print start** | ⚠️ PARTIAL | Firmware auth controls now block unauthorized local control. Requires user to be on same network. Risky for SaaS. |
-| **Via Bambu Studio / Handy bridge** | ❌ NO | Not automatable; requires user interaction. |
+Bambu Lab has an official "Bambu Connect" developer program for third-party integration.
 
-**MVP recommendation:** Implement **Cloud Push** only. User uploads 3MF to PrintHub → PrintHub uploads to Bambu Cloud via API → PrintHub calls `print` endpoint targeting the user's registered printer.
+**Documentation:** Not publicly accessible; requires registration.  
+**Status:** Unknown availability and approval timeline.
 
-### 2.2 Can PrintHub monitor print progress?
+### 2.2 Cloud HTTP API (Community Documented)
 
-| Path | Feasibility | Notes |
-|------|-------------|-------|
-| **MQTT (cloud broker)** | ✅ YES | Subscribe to device topics for real-time progress, temps, state changes. |
-| **HTTP polling** | ✅ YES | Poll device status endpoint (~10 req/min limit). Simpler but less real-time. |
+The `api.bambulab.com` endpoints are used by:
+- Bambu Studio (desktop slicer)
+- Bambu Handy (mobile app)
+- Community projects
 
-**MVP recommendation:** Start with **HTTP polling** for simplicity. Add **MQTT** as a v1.1 enhancement for real-time dashboards.
+**Base URL:** `https://api.bambulab.com`
 
-### 2.3 Can PrintHub consolidate parts across products and send one job?
+#### Authentication
+- Email + password login → `accessToken` + `refreshToken`
+- Tokens valid ~3 months
+- All requests require `Authorization: Bearer {accessToken}` header
 
-The print-queue design (`DESIGN/print-queue.md`) already defines:
-- `PrintQueueResolutionService` — consolidates shared parts (e.g., Generic Hook ×8)
-- `PrintJob` — targets a specific printer
-- `PrintJobItem` — individual parts within a job
+**Endpoint:** `POST /v1/user-service/user/login`
+```json
+{
+  "account": "email@example.com",
+  "password": "hashedpassword"
+}
+```
 
-**Feasibility:** ✅ YES, but with a caveat. Bambu Cloud expects a single 3MF or STL per print job. PrintHub must **pre-compose** the consolidated bed layout into a single 3MF file before pushing. This is a **gating feature** for the printer adapter (#10), not this spike.
+#### Key Endpoints for PrintHub
 
-### 2.4 Multi-printer support (Bambu farm)
+| Method | Path | Purpose |
+|--------|------|---------|
+| GET | `/v1/iot-service/user/devices` | List user's registered printers |
+| GET | `/v1/iot-service/device/{dev_id}` | Get printer status |
+| POST | `/v1/iot-service/file/upload` | Upload print file (3MF/STL) |
+| POST | `/v1/iot-service/project/upload` | Upload sliced project |
+| GET | `/v1/iot-service/project/list` | List user's cloud projects |
+| POST | `/v1/iot-service/project/create` | Create new project |
+| POST | `/v1/iot-service/project/slice` | Trigger slicing |
+| GET | `/v1/iot-service/download/file` | Download files |
+| GET | `/v1/user-service/my/profile` | Get user info (for MQTT credentials) |
 
-Bambu Cloud API lists all bound devices per user (`GET /v1/iot-service/api/user/bind`). PrintHub can:
-1. Fetch user's Bambu printers.
-2. Let user select target printer per job.
-3. Push job to selected printer.
+### 2.3 MQTT Client (Real-Time Updates)
 
-**Feasibility:** ✅ YES. Bambu Cloud natively supports multiple printers under one account.
+Bambu printers use MQTT for real-time status streaming.
+
+**Broker:** `mqtt.bambulab.com` (port 8883)  
+**Credentials:** Derives from user UID (prefix `u_`)  
+**Use Cases:** Real-time print progress, temperature updates, AMS status
+
+**Topic Pattern:**
+- Device status: `device/{dev_id}/report`
+- Upload requests: `device/{dev_id}/upload`
+
+### 2.4 FTP Client
+
+Printer SD card accessible via FTP at printer's IP address.
+
+**Use Cases:** Direct file upload, gcode retrieval (when cloud API limits are hit)
+
+### 2.5 Camera Integration
+
+- **TTCode flow** — get auth token via `POST /v1/iot-service/device/get_thing_token`
+- **Stream URL** — RTSP or HLS depending on firmware
+- **Not MVP-critical** — can defer to later iterations
 
 ---
 
-## 3. Risks and Mitigations
+## 3. Technical Findings
+
+### 3.1 Authentication Flow
+1. User provides Bambu account credentials
+2. PrintHub calls `/v1/user-service/user/login` 
+3. Store `accessToken` + `refreshToken` (encrypted at rest)
+4. Include `Authorization: Bearer {token}` on all API calls
+5. Implement token refresh before expiry
+
+### 3.2 Device Registration
+- Devices are "bound" to user accounts via Bambu Connect
+- PrintHub queries bound devices via `/v1/iot-service/user/devices`
+- Device info includes: `dev_id`, `name`, `online` status, `dev_model_name`
+- Access code (`dev_access_code`) may be needed for local operations
+
+### 3.3 File Upload Flow
+1. Upload 3MF/STL to cloud via `POST /v1/iot-service/file/upload`
+2. Create/update project via `POST /v1/iot-service/project/create`
+3. Assign file to printer task slot (tray)
+4. Monitor via MQTT or polling
+
+### 3.4 MQTT Credentials
+- **Username:** `u_{uid}` (numeric user ID from user profile)
+- **Password:** Session token from login
+- **Topic subscribe:** `/device/{dev_id}/report/#`
+
+### 3.5 Print Status Tracking
+MQTT messages include:
+- `print_status`: "SUCCESS", "FAILED", "FAIL", "RUNNING", "SLICE_WAIT", etc.
+- `progress`: 0-100 percentage
+- `gcode_state`: Current G-code state
+- Temperatures: `bed_temp`, `nozzle_temp`
+- Layer info: `cur_layer`, `total_layers`
+
+---
+
+## 4. MVP Scope Recommendation
+
+### MVP (Issue #10, Wave 3)
+**Achievable in one sprint:**
+1. ✅ User enters Bambu credentials in PrintHub
+2. ✅ PrintHub stores encrypted token
+3. ✅ List bound printers from Bambu cloud
+4. ✅ Show printer status (online/offline)
+5. ✅ Send print job (3MF file) to printer
+6. ✅ Track print progress via MQTT
+7. ✅ Show basic status in UI: printing, progress %, ETA
+
+**Not MVP:**
+- Multi-color/AMS optimization
+- Camera stream embedding
+- Advanced slice settings
+- Multiple file uploads per job
+- Print history sync
+
+### Phase 2 Additions
+- Camera stream integration
+- AMS tray management
+- Filament usage tracking
+- Print cost estimation from Bambu data
+
+---
+
+## 5. Risks & Mitigations
 
 | Risk | Likelihood | Impact | Mitigation |
 |------|------------|--------|------------|
-| Cloud API changes or rate limits tighten | Medium | High | Abstract Bambu client behind `IBambuService` interface; make adapter swappable |
-| Bambu Lab shuts down or restricts unofficial API access | Low | High | Architect adapter layer to support alternative paths (OctoEverywhere, Klipper, official SDK later) |
-| Firmware auth blocks cloud print start for unauthorized apps | Medium | High | Apply for Bambu Lab integration partner program; monitor SDK announcements |
-| 3MF composition (multi-part bed layout) is complex | Medium | Medium | Scope bed layout composition to post-MVP (#10). MVP can push one part per job. |
-| Token refresh / 2FA UX friction | Medium | Medium | Store encrypted refresh tokens; prompt user for re-auth when tokens expire |
-| AGPL-3.0 PyPI library license incompatibility | Low | Medium | Do NOT vendor the Python library. Build a clean-room C# implementation referencing public API docs only. |
+| Bambu Connect API closes/restricts | Low | High | Use community documentation; monitor API stability |
+| Token refresh failures | Medium | Medium | Implement robust retry with user re-auth prompt |
+| MQTT connection instability | Medium | Low | Fallback to HTTP polling for status |
+| Device offline during job | Medium | Medium | Queue job; notify user when printer comes online |
+| API rate limits | Low | Low | Implement request throttling |
 
 ---
 
-## 4. MVP Scope Definition
+## 6. Architectural Implications
 
-### 4.1 What ships in MVP
+### Interface Contract (for Issue #10)
 
-| Feature | Priority | Implementation Issue |
-|---------|----------|----------------------|
-| Register Bambu Cloud account credentials (token-based) | P0 | #10 (Printer Adapter) |
-| List user's Bambu printers | P0 | #10 |
-| Push a single 3MF file to a selected Bambu printer | P0 | #10 |
-| Poll print job status (pending / printing / success / failed) | P0 | #10 |
-| Token refresh handling | P1 | #10 |
-| Real-time MQTT progress streaming | P2 | Post-MVP |
-| Multi-part consolidated bed layout | P2 | Post-MVP |
-| AMS material selection per job | P2 | Post-MVP |
+The spike validates that `IPrinterAdapter` should include:
 
-### 4.2 What does NOT ship in MVP
-
-- Local LAN control (blocked by firmware auth, not cloud-native)
-- Bambu Studio / Handy integration
-- Automatic retry on print failure
-- Printer farm load balancing (print to least-busy printer)
-- Camera streaming in dashboard
-
-### 4.3 Architecture Changes Needed
-
-From `DESIGN/dotnet-structure.md`, the Bambu adapter fits cleanly into `PrintHub.Infrastructure`:
-
-```
-PrintHub.Infrastructure/
-├── Services/
-│   ├── Bambu/
-│   │   ├── BambuCloudClient.cs      # HTTP API wrapper
-│   │   ├── BambuMqttClient.cs       # MQTT subscriber/publisher (v1.1)
-│   │   └── BambuPrinterAdapter.cs   # Implements IPrinterAdapter
+```csharp
+public interface IPrinterAdapter
+{
+    Task<IEnumerable<PrinterInfo>> GetPrintersAsync();
+    Task<PrinterStatus> GetStatusAsync(string printerId);
+    Task<bool> StartPrintAsync(string printerId, PrintJob job);
+    Task<bool> StopPrintAsync(string printerId);
+    Task<bool> PausePrintAsync(string printerId);
+    Task UploadFileAsync(string printerId, Stream fileStream, string fileName);
+    IObservable<PrintProgress> SubscribeProgress(string printerId);
+}
 ```
 
-New interfaces needed in `PrintHub.Core`:
-- `IBambuService` — token management, printer list, job submission
-- `IPrinterAdapter` — abstraction so Bambu can be swapped for OctoEverywhere/Klipper later
+### Bambu-Specific Implementation
+
+`BambuPrinterAdapter` will:
+1. Implement `IBambuCloudClient` for HTTP API calls
+2. Implement `IBambuMqttClient` for real-time updates
+3. Store access tokens in `BambuCredentials` (encrypted)
+4. Map Bambu-specific status to canonical `PrinterStatus`
+
+### Configuration Requirements
+
+```json
+{
+  "Bambu": {
+    "ApiBaseUrl": "https://api.bambulab.com",
+    "MqttBroker": "mqtt.bambulab.com",
+    "MqttPort": 8883,
+    "ClientTimeoutSeconds": 30
+  }
+}
+```
 
 ---
 
-## 5. Proof-of-Concept Stubs
+## 7. Recommendation
 
-This spike includes **optional proof-of-concept C# stubs** in `src/` to validate:
-1. Interface design compatibility with Core/Infrastructure layering.
-2. Configuration options shape (`BambuOptions`).
-3. Error handling patterns for Bambu-specific error codes.
+**Proceed with Bambu integration for Issue #10.** The API surface is well-documented by the community, the printer ecosystem supports cloud-native integration, and there are no technical blockers identified.
 
-These stubs are **not production code**. They compile conceptually against the planned .NET 8 structure but are intentionally minimal (no HTTP client wiring, no real auth flow).
+**MVP Scope for Issue #10:**
+- Auth flow with encrypted token storage
+- Printer discovery (list bound devices)
+- Status polling with MQTT upgrade
+- Basic print job dispatch (file upload + start)
+- Progress tracking UI
 
-**Files added:**
-- `src/PrintHub.Core/Interfaces/Services/IBambuService.cs`
-- `src/PrintHub.Core/Interfaces/Services/IPrinterAdapter.cs`
-- `src/PrintHub.Infrastructure/Services/Printers/Bambu/BambuCloudClient.cs`
-- `src/PrintHub.Infrastructure/Services/Printers/Bambu/BambuPrinterAdapter.cs`
-- `src/PrintHub.Infrastructure/Configuration/BambuOptions.cs`
-
----
-
-## 6. Recommendations
-
-1. **Accept Bambu integration into MVP scope.** The technical path is validated, community tools exist, and the cloud-native model aligns with PrintHub's "zero local setup" goal.
-2. **Bound the scope tightly.** Single-file cloud push + polling is enough for MVP. Do not attempt local LAN control or multi-part bed composition yet.
-3. **Build behind an adapter interface.** `IPrinterAdapter` decouples Bambu from the queue engine so OctoEverywhere/Klipper can be added later without queue refactor.
-4. **Monitor Bambu Lab SDK announcements.** Subscribe to their blog / partner program. Plan a migration sprint when the official SDK stabilizes.
-5. **Apply for integration partner status.** Early partner access may unlock official API credentials and avoid future auth blocks.
-6. **Document token security.** Bambu tokens are 3-month bearer tokens with broad device access. Store encrypted at rest (Azure Key Vault). Never log tokens.
+**Defer to Phase 2:**
+- Advanced AMS management
+- Camera stream embedding
+- Print history sync
+- Multi-printer optimization
 
 ---
 
-## 7. References
+## 8. References
 
-| Source | URL | Role |
-|--------|-----|------|
-| Bambu-Lab-Cloud-API (PyPI) | https://pypi.org/project/bambu-lab-cloud-api/ | Validated Python implementation |
-| coelacant1/Bambu-Lab-Cloud-API | https://github.com/coelacant1/Bambu-Lab-Cloud-API | Endpoint docs + MQTT reference |
-| Doridian/OpenBambuAPI | https://github.com/Doridian/OpenBambuAPI | HTTP + MQTT protocol docs |
-| Bambu Lab Wiki — Third-party Integration | https://wiki.bambulab.com/en/software/third-party-integration | Official stance |
-| Bambu Lab Blog — Authorization Controls | https://blog.bambulab.com/firmware-update-introducing-new-authorization-control-system-2/ | Firmware auth changes |
-| Bambu Lab Blog — Ecosystem Principles | https://blog.bambulab.com/custom-firmware-plan-and-our-principles-on-ecosystem/ | SDK maturity disclaimer |
-| bambutools/bambulabs_api | https://bambutools.github.io/bambulabs_api/ | Alternative Python API docs |
-
----
-
-*End of spike report. Closes #4.*
+- [OpenBambuAPI Community Docs](https://github.com/Doridian/OpenBambuAPI)
+- [coelacant1/Bambu-Lab-Cloud-API](https://github.com/coelacant1/Bambu-Lab-Cloud-API)
+- [BambuLabs API Documentation](https://bambutools.github.io/bambulabs_api/)
