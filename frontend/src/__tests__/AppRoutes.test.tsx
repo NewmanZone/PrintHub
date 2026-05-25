@@ -43,13 +43,11 @@ describe('App routes', () => {
     expect(screen.getByText('No product matches ID missing.')).toBeInTheDocument()
   })
 
-  it('renders a valid job detail page with operator controls', () => {
+  it('renders a future-state job detail page without simulated job data', () => {
     renderRoute('/jobs/job_001')
 
-    expect(screen.getByRole('heading', { name: 'job_001' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Pause' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Resume' })).toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Cancel' })).toBeInTheDocument()
+    expect(screen.getByText('Job tracking is not live yet')).toBeInTheDocument()
+    expect(screen.getByText('No live job data is available for job_001.')).toBeInTheDocument()
   })
 
   it('renders not found for unknown app routes', () => {
