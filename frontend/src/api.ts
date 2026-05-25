@@ -38,17 +38,18 @@ const API_BASE = (import.meta.env.VITE_API_BASE_URL ?? '').replace(/\/$/, '')
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${API_BASE}${path}`, init)
+  const text = await response.text()
   if (!response.ok) {
     let message = `Request failed with ${response.status}`
     try {
-      const body = await response.json()
+      const body = text ? JSON.parse(text) : null
       message = body.error ?? body.message ?? message
     } catch {
       // Keep status message.
     }
     throw new Error(message)
   }
-  return response.json() as Promise<T>
+  return (text ? JSON.parse(text) : null) as T
 }
 
 export const api = {
