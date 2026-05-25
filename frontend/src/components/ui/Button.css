@@ -29,14 +29,14 @@
 }
 
 .ph-button--primary {
-  background: var(--filament-coral);
+  background: var(--teal);
   color: var(--porcelain);
 }
 .ph-button--primary:hover {
-  background: var(--filament-coral-deep);
+  background: var(--teal-deep);
 }
 .ph-button--primary:active {
-  background: #a0451f;
+  background: #0b5f59;
 }
 
 .ph-button--secondary {
@@ -51,18 +51,18 @@
 .ph-button--ghost {
   background: transparent;
   color: var(--ink);
-  border-color: var(--line);
+  border-color: transparent;
 }
 .ph-button--ghost:hover {
   background: var(--linen);
 }
 
 .ph-button--danger {
-  background: var(--status-error);
+  background: var(--filament-coral);
   color: var(--porcelain);
 }
 .ph-button--danger:hover {
-  background: #dc2626;
+  background: var(--filament-coral-deep);
 }
 
 .ph-button--full {

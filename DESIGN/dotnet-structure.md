@@ -1,280 +1,223 @@
-# PrintHub - .NET Solution Structure
+# PrintHub - .NET Project Structure
 
 ## Overview
 
-PrintHub uses a clean architecture pattern with .NET 8. The solution is organized into focused projects with clear dependencies.
-
----
+The backend uses a clean architecture layout. Phase 1 implements workspace-scoped Etsy file preparation. Printer adapters and direct print execution are later-phase modules and should not be required for Phase 1 builds or tests.
 
 ## Solution Layout
 
+```text
+PrintHub.sln
+|-- src/
+|   |-- PrintHub.API/
+|   |-- PrintHub.Core/
+|   |-- PrintHub.Infrastructure/
+|   `-- PrintHub.Worker/
+`-- tests/
+    |-- PrintHub.API.Tests/
+    |-- PrintHub.Core.Tests/
+    `-- PrintHub.Infrastructure.Tests/
 ```
-PrintHub/
-├── DESIGN/                          # Architecture & design docs
-├── src/
-│   ├── PrintHub.API/                 # ASP.NET Core Web API
-│   ├── PrintHub.Core/                # Domain entities, interfaces
-│   ├── PrintHub.Infrastructure/      # EF Core, Azure, External APIs
-│   ├── PrintHub.Worker/              # Azure Functions (background jobs)
-│   └── PrintHub.Tests/               # Unit tests
-├── PrintHub.sln                      # Solution file
-└── README.md
-```
-
----
-
-## Project Dependencies
-
-```
-PrintHub.API
-    └── PrintHub.Core
-    └── PrintHub.Infrastructure
-
-PrintHub.Worker
-    └── PrintHub.Core
-    └── PrintHub.Infrastructure
-
-PrintHub.Tests
-    └── PrintHub.Core
-    └── PrintHub.Infrastructure
-    └── PrintHub.API
-```
-
----
 
 ## PrintHub.Core
 
-Contains all domain logic with **no external dependencies**.
+Domain entities, interfaces, and business logic.
 
-```
+```text
 PrintHub.Core/
-├── Entities/
-│   ├── User.cs
-│   ├── Shop.cs
-│   ├── Product.cs
-│   ├── Part.cs
-│   ├── ProductPart.cs
-│   ├── PrintFile.cs
-│   ├── PrintFileVersion.cs
-│   ├── PrintJob.cs
-│   ├── PrintJobItem.cs
-│   ├── PersonalizedOrder.cs
-│   ├── InventoryMovement.cs
-│   └── CostRecord.cs
-├── Enums/
-│   ├── PrintJobStatus.cs
-│   ├── PrintJobItemStatus.cs
-│   ├── PersonalizedOrderStatus.cs
-│   └── ShopProvider.cs
-├── Interfaces/
-│   ├── Repositories/
-│   │   ├── IUserRepository.cs
-│   │   ├── IShopRepository.cs
-│   │   ├── IProductRepository.cs
-│   │   ├── IPartRepository.cs
-│   │   └── IPrintJobRepository.cs
-│   └── Services/
-│       ├── IProductService.cs
-│       ├── IPrintQueueService.cs
-│       ├── IEtsyService.cs
-│       ├── IBambuService.cs
-│       └── IInventoryService.cs
-└── Services/
-    ├── PrintQueueResolutionService.cs  # Shared part consolidation logic
-    └── InventoryCalculationService.cs
+|-- Entities/
+|   |-- User.cs
+|   |-- Workspace.cs
+|   |-- WorkspaceMember.cs
+|   |-- Shop.cs
+|   |-- Product.cs
+|   |-- Part.cs
+|   |-- ProductPart.cs
+|   |-- PrintFile.cs
+|   |-- PrintFileVersion.cs
+|   |-- EtsyOrder.cs
+|   |-- EtsyOrderItem.cs
+|   |-- PreparationBundle.cs
+|   |-- PreparationBundleItem.cs
+|   `-- AuditEvent.cs
+|-- Enums/
+|   |-- WorkspaceRole.cs
+|   |-- EtsyOrderStatus.cs
+|   |-- OrderItemPreparationStatus.cs
+|   `-- PreparationBundleStatus.cs
+|-- Interfaces/
+|   |-- Repositories/
+|   |   |-- IUserRepository.cs
+|   |   |-- IWorkspaceRepository.cs
+|   |   |-- IShopRepository.cs
+|   |   |-- IProductRepository.cs
+|   |   |-- IPartRepository.cs
+|   |   |-- IFileRepository.cs
+|   |   |-- IOrderRepository.cs
+|   |   `-- IPreparationBundleRepository.cs
+|   `-- Services/
+|       |-- ICurrentUserContext.cs
+|       |-- IWorkspaceAuthorizationService.cs
+|       |-- IEtsyService.cs
+|       |-- IFileStorageService.cs
+|       `-- IPreparationBundleService.cs
+`-- Services/
+    |-- WorkspaceAuthorizationService.cs
+    `-- PreparationBundleService.cs
 ```
-
----
 
 ## PrintHub.Infrastructure
 
-Implements all interfaces defined in Core. Depends on Azure SDKs, EF Core, HTTP clients.
+External integrations and persistence.
 
-```
+```text
 PrintHub.Infrastructure/
-├── Data/
-│   ├── PrintHubDbContext.cs          # EF Core DbContext
-│   └── CosmosDb/
-│       └── CosmosDbConfiguration.cs
-├── Repositories/
-│   ├── UserRepository.cs
-│   ├── ShopRepository.cs
-│   ├── ProductRepository.cs
-│   ├── PartRepository.cs
-│   └── PrintJobRepository.cs
-├── Services/
-│   ├── Etsy/
-│   │   ├── EtsyApiClient.cs
-│   │   └── EtsyOAuthService.cs
-│   ├── Bambu/
-│   │   ├── BambuConnectClient.cs
-│   │   └── BambuCloudClient.cs
-│   └── Storage/
-│       └── AzureBlobStorageService.cs
-├── Configuration/
-│   ├── EtsyOptions.cs
-│   ├── AzureStorageOptions.cs
-│   └── BambuOptions.cs
-└── Extensions/
-    └── ServiceCollectionExtensions.cs
+|-- Data/
+|   |-- PrintHubDbContext.cs
+|   `-- CosmosOptions.cs
+|-- Repositories/
+|   |-- UserRepository.cs
+|   |-- WorkspaceRepository.cs
+|   |-- ShopRepository.cs
+|   |-- ProductRepository.cs
+|   |-- PartRepository.cs
+|   |-- FileRepository.cs
+|   |-- OrderRepository.cs
+|   `-- PreparationBundleRepository.cs
+|-- Services/
+|   |-- Etsy/
+|   |   |-- EtsyClient.cs
+|   |   |-- EtsyOptions.cs
+|   |   `-- EtsySyncService.cs
+|   |-- Files/
+|   |   |-- AzureBlobFileStorageService.cs
+|   |   `-- FileValidationService.cs
+|   `-- Bundles/
+|       `-- BundleArchiveService.cs
+`-- DependencyInjection.cs
 ```
 
----
+Later phase printer integrations should live under `Services/Printers/` behind adapter interfaces after Phase 1.
 
 ## PrintHub.API
 
-ASP.NET Core 8 Web API project.
+ASP.NET Core 8 Web API.
 
-```
+```text
 PrintHub.API/
-├── Controllers/
-│   ├── AuthController.cs
-│   ├── ShopsController.cs
-│   ├── ProductsController.cs
-│   ├── PartsController.cs
-│   ├── QueueController.cs
-│   ├── JobsController.cs
-│   ├── PrintersController.cs
-│   └── InsightsController.cs
-├── Middleware/
-│   ├── ExceptionHandlerMiddleware.cs
-│   └── RateLimitingMiddleware.cs
-├── Filters/
-│   └── ValidateModelAttribute.cs
-├── Requests/
-│   ├── Auth/
-│   │   ├── RegisterRequest.cs
-│   │   └── LoginRequest.cs
-│   ├── Products/
-│   │   ├── CreateProductRequest.cs
-│   │   └── UpdateProductRequest.cs
-│   ├── Queue/
-│   │   ├── AddToQueueRequest.cs
-│   │   └── AddPersonalizedToQueueRequest.cs
-│   └── Printers/
-│       ├── RegisterBambuPrinterRequest.cs
-│       └── RegisterKlipperPrinterRequest.cs
-├── Responses/
-│   ├── ErrorResponse.cs
-│   ├── ProductResponse.cs
-│   ├── QueueResponse.cs
-│   └── InsightDashboardResponse.cs
-├── Program.cs
-└── appsettings.json
+|-- Controllers/
+|   |-- AuthController.cs
+|   |-- WorkspacesController.cs
+|   |-- MembersController.cs
+|   |-- ShopsController.cs
+|   |-- ProductsController.cs
+|   |-- PartsController.cs
+|   |-- FilesController.cs
+|   |-- OrdersController.cs
+|   `-- PreparationBundlesController.cs
+|-- Middleware/
+|   |-- ErrorHandlingMiddleware.cs
+|   `-- RequestLoggingMiddleware.cs
+|-- Models/
+|   |-- Auth/
+|   |   `-- CurrentUserResponse.cs
+|   |-- Workspaces/
+|   |   |-- CreateWorkspaceRequest.cs
+|   |   `-- InviteMemberRequest.cs
+|   |-- Products/
+|   |   |-- CreateProductRequest.cs
+|   |   `-- UpdateProductRequest.cs
+|   |-- Parts/
+|   |   |-- CreatePartRequest.cs
+|   |   `-- SetCurrentVersionRequest.cs
+|   |-- Orders/
+|   |   `-- UpdateOrderItemMappingRequest.cs
+|   `-- Bundles/
+|       |-- CreateManualBundleRequest.cs
+|       `-- UpdateBundleStatusRequest.cs
+|-- Authorization/
+|   |-- WorkspaceRequirement.cs
+|   `-- WorkspaceAuthorizationHandler.cs
+|-- Program.cs
+`-- appsettings.json
 ```
 
----
+Do not add `RegisterRequest`, `LoginRequest`, password reset models, or password auth controllers.
 
 ## PrintHub.Worker
 
-Azure Functions for background processing.
+Background jobs.
 
-```
+```text
 PrintHub.Worker/
-├── Functions/
-│   ├── EtsyOrderSyncFunction.cs      # Poll Etsy for new orders
-│   ├── InventoryAlertFunction.cs      # Check low stock, send alerts
-│   ├── PrintJobStatusFunction.cs      # Monitor Bambu job progress
-│   └── CleanupFunction.cs             # Purge old files per retention policy
-├── host.json
-└── local.settings.json
+|-- Functions/
+|   |-- EtsyListingSyncFunction.cs
+|   |-- EtsyOrderSyncFunction.cs
+|   |-- EtsyWebhookFunction.cs
+|   |-- FileMetadataFunction.cs
+|   `-- BundleArchiveFunction.cs
+|-- Services/
+|   `-- WorkerWorkspaceContext.cs
+`-- Program.cs
 ```
 
----
+## Tests
 
-## PrintHub.Tests
-
-xUnit tests with Moq for mocking.
-
+```text
+tests/
+|-- PrintHub.Core.Tests/
+|   |-- WorkspaceAuthorizationServiceTests.cs
+|   |-- PreparationBundleServiceTests.cs
+|   `-- FileVersioningTests.cs
+|-- PrintHub.Infrastructure.Tests/
+|   |-- EtsySyncServiceTests.cs
+|   |-- AzureBlobFileStorageServiceTests.cs
+|   `-- RepositoryTests.cs
+`-- PrintHub.API.Tests/
+    |-- AuthControllerTests.cs
+    |-- WorkspacesControllerTests.cs
+    |-- ProductsControllerTests.cs
+    |-- OrdersControllerTests.cs
+    |-- PreparationBundlesControllerTests.cs
+    `-- AuthorizationTests.cs
 ```
-PrintHub.Tests/
-├── Services/
-│   ├── PrintQueueResolutionServiceTests.cs
-│   ├── InventoryCalculationServiceTests.cs
-│   └── ProductServiceTests.cs
-├── Controllers/
-│   ├── ProductsControllerTests.cs
-│   └── QueueControllerTests.cs
-└── TestHelpers/
-    ├── Fixtures/
-    └── Builders/
-```
 
----
-
-## Key NuGet Packages
-
-| Project | Packages |
-|---------|----------|
-| PrintHub.Core | (none - pure C#) |
-| PrintHub.Infrastructure | Microsoft.EntityFrameworkCore.Cosmos, Azure.Storage.Blobs, Microsoft.Extensions.Http |
-| PrintHub.API | Microsoft.AspNetCore.Authentication.JwtBearer, Swashbuckle.AspNetCore, AspNetCoreRateLimit |
-| PrintHub.Worker | Microsoft.Azure.Functions.Worker, Microsoft.Extensions.Azure |
-| PrintHub.Tests | xUnit, Moq, FluentAssertions, Microsoft.AspNetCore.Mvc.Testing |
-
----
-
-## Configuration (appsettings.json)
+## Configuration
 
 ```json
 {
+  "Authentication": {
+    "Authority": "https://tenant.b2clogin.com/...",
+    "Audience": "api://printhub"
+  },
+  "Cosmos": {
+    "ConnectionString": "...",
+    "DatabaseName": "PrintHub"
+  },
+  "Storage": {
+    "ConnectionString": "...",
+    "ContainerName": "print-files"
+  },
   "Etsy": {
-    "ClientId": "",
-    "ClientSecret": "",
-    "CallbackUrl": "https://app.printhub.example.com/auth/etsy/callback",
-    "Scopes": "listings_rw transactions profile"
-  },
-  "Bambu": {
-    "ApiBaseUrl": "https://api.bambulab.com",
-    "AppKey": "",
-    "AppSecret": ""
-  },
-  "Azure": {
-    "BlobStorage": {
-      "ConnectionString": "",
-      "ContainerName": "printfiles",
-      "UseManagedIdentity": true
-    },
-    "CosmosDb": {
-      "ConnectionString": "",
-      "DatabaseName": "PrintHub"
-    }
-  },
-  "Auth": {
-    "Jwt": {
-      "Secret": "",
-      "Issuer": "PrintHub",
-      "Audience": "PrintHubApp",
-      "ExpirationMinutes": 60
-    }
+    "ClientId": "...",
+    "ClientSecret": "...",
+    "RedirectUri": "https://app.printhub.example.com/settings/etsy/callback"
   }
 }
 ```
 
----
-
-## Running Locally
+## Development Commands
 
 ```bash
-# Restore and build
 dotnet restore PrintHub.sln
 dotnet build PrintHub.sln
-
-# Run API
-cd src/PrintHub.API
-dotnet run
-
-# Run tests
 dotnet test PrintHub.sln
+dotnet run --project src/PrintHub.API
 ```
 
----
+## Lock
 
-## Azure Deployment (Bicep concepts)
-
-- App Service or Container Apps for API
-- Azure Functions for Worker
-- Cosmos DB (serverless mode for startup)
-- Blob Storage v2
-- Azure AD B2C for authentication
-- Application Gateway + WAF for security
+- OAuth-only. No password auth code.
+- Workspace authorization on every protected endpoint.
+- Phase 1 API should not depend on printer adapters.
+- Keep printer execution code out of the Phase 1 critical path.

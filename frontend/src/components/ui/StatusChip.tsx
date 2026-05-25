@@ -1,7 +1,21 @@
 import React from 'react'
 import './StatusChip.css'
 
-type Status = 'online' | 'busy' | 'offline' | 'error' | 'warning' | 'success'
+export type Status =
+  | 'online'
+  | 'busy'
+  | 'offline'
+  | 'error'
+  | 'warning'
+  | 'success'
+  | 'draft'
+  | 'pending'
+  | 'queued'
+  | 'in-progress'
+  | 'paused'
+  | 'completed'
+  | 'failed'
+  | 'cancelled'
 
 interface StatusChipProps {
   status: Status

@@ -1,13 +1,13 @@
 import React from 'react'
-import { Panel } from '../components/ui/Panel'
-import { DataTable } from '../components/ui/DataTable'
+import { Plus, Printer } from 'lucide-react'
 import { Button } from '../components/ui/Button'
-import { StatusChip } from '../components/ui/StatusChip'
+import { DataTable } from '../components/ui/DataTable'
 import { EmptyState } from '../components/ui/EmptyState'
-import { Printer } from 'lucide-react'
+import { Panel } from '../components/ui/Panel'
+import { StatusChip, type Status } from '../components/ui/StatusChip'
 import { mockPrinters, type MockPrinter } from '../mocks'
 
-const printerStatusMap: Record<MockPrinter['status'], 'online' | 'busy' | 'offline' | 'error'> = {
+const printerStatusMap: Record<MockPrinter['status'], Status> = {
   Online: 'online',
   Offline: 'offline',
   Busy: 'busy',
@@ -19,30 +19,38 @@ export const Printers: React.FC = () => {
       <EmptyState
         icon={<Printer size={24} />}
         title="No printers registered"
-        description="Add a Bambu or OctoAnywhere printer to start printing."
-        action={<Button>Add Printer</Button>}
+        description="Add a Bambu or OctoEverywhere printer to start printing."
+        action={<Button>Add printer</Button>}
       />
     )
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', margin: 0 }}>Printers</h1>
-        <Button size="sm">Add Printer</Button>
+    <div className="ph-page">
+      <div className="ph-page-header">
+        <div>
+          <p className="ph-page-kicker">Devices</p>
+          <h1 className="ph-page-title">Printers</h1>
+          <p className="ph-page-description">Register printer adapters, monitor readiness, and keep default routing clear.</p>
+        </div>
+        <div className="ph-page-actions">
+          <Button size="sm" iconLeft={<Plus size={16} />}>Add printer</Button>
+        </div>
       </div>
 
-      <Panel>
+      <Panel title="Registered printers">
         <DataTable
+          caption="Registered printers"
           columns={[
             { key: 'name', header: 'Name' },
-            { key: 'type', header: 'Type', width: '100px' },
-            { key: 'model', header: 'Model', width: '140px' },
-            { key: 'status', header: 'Status', width: '110px', render: (p: MockPrinter) => <StatusChip status={printerStatusMap[p.status]} label={p.status} /> },
-            { key: 'isDefault', header: 'Default', width: '90px', render: (p: MockPrinter) => (p.isDefault ? 'Yes' : 'No') },
+            { key: 'type', header: 'Type', width: '110px' },
+            { key: 'model', header: 'Model', width: '150px' },
+            { key: 'status', header: 'Status', width: '130px', render: (p: MockPrinter) => <StatusChip status={printerStatusMap[p.status]} label={p.status} /> },
+            { key: 'temperature', header: 'Temps', width: '150px', render: (p: MockPrinter) => p.nozzleTemp ? `${p.nozzleTemp}C nozzle / ${p.bedTemp}C bed` : 'Unavailable' },
+            { key: 'isDefault', header: 'Default', width: '100px', render: (p: MockPrinter) => (p.isDefault ? 'Yes' : 'No') },
           ]}
           rows={mockPrinters}
-          keyExtractor={(p: MockPrinter) => p.id}
+          keyExtractor={(printer: MockPrinter) => printer.id}
         />
       </Panel>
     </div>

@@ -2,37 +2,43 @@
 
 ## Overview
 
-PrintHub uses **Azure Cosmos DB** as the primary database. This document locks the tenant, container, and partition-key strategy.
+PrintHub uses Azure Cosmos DB as the primary database. Phase 1 access is workspace-scoped: users may only read or mutate data for workspaces where they have an active membership.
 
 ## Tenant Strategy
 
-- **One Cosmos account per environment** (dev, staging, prod).
-- **One database per application** (`PrintHub`).
-- **No multi-tenant isolation at the database level** — all shops share the same database.
-- **Row-level security** enforced by the API layer: every query includes `ShopId` as a mandatory filter.
+- One Cosmos account per environment: dev, staging, prod.
+- One database per application: `PrintHub`.
+- No tenant isolation at the database level in Phase 1.
+- Authorization is enforced by the API layer.
+- Every hot-path query includes `WorkspaceId` or a partition key derived from workspace scope.
 
 ## Container Strategy
 
 | Container | Partition Key | Description |
 |-----------|---------------|-------------|
-| `Shops` | `/userId` | One doc per shop. Partitioned by owner for user-centric lookups. |
-| `Products` | `/shopId` | One doc per product. Partitioned by shop for shop-scoped queries. |
-| `Parts` | `/shopId` | One doc per part. Partitioned by shop. |
-| `PrintFileVersions` | `/shopId` | One doc per file version. Partitioned by shop. |
-| `PrintJobs` | `/shopId` | One doc per job. Partitioned by shop. |
-| `PrintJobItems` | `/shopId` | Child items of a job. Partitioned by shop (not by jobId) to keep all shop data collocated. |
-| `InventoryMovements` | `/shopId` | Audit trail. Partitioned by shop. |
-| `PersonalizedOrders` | `/shopId` | One doc per order. Partitioned by shop. |
-| `CostRecords` | `/shopId` | One doc per cost record. Partitioned by shop. |
+| `Users` | `/id` | OAuth-backed user profiles |
+| `Workspaces` | `/id` | Workspace metadata |
+| `WorkspaceMembers` | `/workspaceId` | Memberships and pending invites |
+| `Shops` | `/workspaceId` | Etsy shop connection metadata |
+| `Products` | `/workspaceId` | Etsy/manual products |
+| `Parts` | `/workspaceId` | Reusable printable parts |
+| `PrintFiles` | `/workspaceId` | Logical file records |
+| `PrintFileVersions` | `/workspaceId` | Immutable uploaded file versions |
+| `EtsyOrders` | `/workspaceId` | Synced order records and line items |
+| `PreparationBundles` | `/workspaceId` | Generated/downloadable bundles |
+| `AuditEvents` | `/workspaceId` | Workspace-scoped audit trail |
 
 ## Partition Key Rationale
 
-1. **Shop-scoped queries dominate** — 90%+ of reads are within a single shop (dashboard, queue, product list).
-2. **Avoid hot partitions** — `shopId` has natural cardinality (one partition per shop).
-3. **No cross-shop queries in prod** — admin/insight aggregations run in the API/service layer, not as cross-partition Cosmos queries.
-4. **Cross-partition queries allowed only for:**
-   - Background analytics (Azure Functions with rate-limited execution)
-   - Admin dashboards (with explicit pagination and timeouts)
+1. Workspace-scoped queries dominate Phase 1: dashboard, products, orders, files, and bundles.
+2. Contributors need access to the same shop data, so `userId` is not the right primary partition for products/files/orders.
+3. One active Etsy shop per workspace keeps shop-level data naturally colocated without making shop ownership equal user ownership.
+4. Cross-workspace queries are not allowed in user-facing hot paths.
+
+Cross-partition queries are allowed only for:
+
+- Background analytics with rate limits.
+- Internal admin diagnostics with explicit pagination and timeouts.
 
 ## Throughput
 
@@ -40,22 +46,26 @@ PrintHub uses **Azure Cosmos DB** as the primary database. This document locks t
 |-------------|------|------|
 | Dev | Serverless | Pay-per-use |
 | Staging | Serverless | Pay-per-use |
-| Prod (startup) | Serverless or Autoscale 400–4000 | Scale with demand |
+| Prod startup | Serverless or autoscale 400-4000 | Scale with demand |
 
 ## Indexing Policy
 
-Default automatic indexing. Explicit composite indexes for:
-- `ShopId` + `CreatedAt` (DESC) — list queries ordered by newest first
-- `ShopId` + `Status` + `CreatedAt` — filtered job queues
+Default automatic indexing is acceptable initially. Add composite indexes for:
+
+- `WorkspaceId` + `CreatedAt` descending for newest-first lists.
+- `WorkspaceId` + `Status` + `CreatedAt` for filtered order and bundle views.
+- `WorkspaceId` + `ExternalListingId` for Etsy listing mapping.
+- `WorkspaceId` + `ExternalOrderId` for Etsy order upserts.
 
 ## TTL
 
-- `InventoryMovements`: 365 days
-- `CostRecords`: 730 days
-- `PrintFileVersions` (if soft-deleted): 90 days
+- Generated bundle archives: short-lived in Blob Storage by default.
+- Audit events: retain at least 365 days unless storage cost requires adjustment.
+- Soft-deleted file metadata: retain 90 days.
+- Source file blobs: retained by default until user delete/purge.
 
 ## Lock
 
-- **Do not change partition keys without a migration plan reviewed by the team.**
-- **Do not introduce cross-partition queries in the hot path.**
-- **Do not create per-shop databases or containers.**
+- Do not change partition keys without a migration plan.
+- Do not introduce cross-partition queries in user-facing hot paths.
+- Do not partition product/order/file data by user; contributors must share the same workspace data.

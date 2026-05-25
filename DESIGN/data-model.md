@@ -2,332 +2,360 @@
 
 ## Overview
 
-PrintHub uses a Bill of Materials (BOM) approach to manage products and their constituent parts. Parts can be:
-- **Generic** — shared across multiple products (e.g., basic hooks, standard connectors)
-- **Product-specific** — unique to a single product (e.g., custom character sculpts)
+PrintHub Phase 1 is a shared Etsy production workspace. The data model is centered on:
 
-This allows efficient batch printing: printing 10 Product A and 5 Product B with shared parts means the system calculates exact quantities needed rather than naively multiplying.
+- OAuth users who belong to one or more workspaces.
+- A workspace that can connect one Etsy shop.
+- Products imported from Etsy or created manually.
+- Printable parts and versioned STL/3MF source files.
+- Etsy orders that are prepared into downloadable file bundles for manual printing.
+
+Direct printer submission, live printer telemetry, and Bambu-specific task IDs are later-phase concerns.
 
 ---
 
 ## Core Entities
 
 ### User
-```
+
+OAuth-backed person using PrintHub.
+
+```text
 User
-├── Id: Guid (PK)
-├── Email: string
-├── PasswordHash: string  ← REMOVED — OAuth-only (Azure AD B2C)
-├── DisplayName: string?
-├── CreatedAt: DateTime
-├── UpdatedAt: DateTime
-└── Shops: List<Shop>
+|-- Id: Guid (PK)
+|-- Email: string
+|-- ExternalAuthSubject: string
+|-- DisplayName: string?
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+`-- WorkspaceMemberships: List<WorkspaceMember>
 ```
 
-> **Auth Lock:** Azure AD B2C / OAuth-only. No `PasswordHash`, no password registration/login/reset endpoints.
+Auth lock: no `PasswordHash`, password registration, password login, or password reset data exists in PrintHub.
+
+### Workspace
+
+A shared production space for one shop team.
+
+```text
+Workspace
+|-- Id: Guid (PK)
+|-- Name: string
+|-- OwnerUserId: Guid (FK)
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+|-- Members: List<WorkspaceMember>
+|-- Shops: List<Shop>
+|-- Products: List<Product>
+`-- Parts: List<Part>
+```
+
+### WorkspaceMember
+
+Connects users to a workspace with role-based access.
+
+```text
+WorkspaceMember
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- UserId: Guid (FK)
+|-- Role: WorkspaceRole
+|-- InvitedByUserId: Guid?
+|-- InvitedEmail: string?
+|-- AcceptedAt: DateTime?
+|-- CreatedAt: DateTime
+`-- RemovedAt: DateTime?
+```
+
+### WorkspaceRole
+
+```text
+Owner
+Contributor
+Viewer
+```
+
+Owner can manage Etsy connection, members, products, files, and order preparation. Contributor can manage products, files, and preparation bundles. Viewer is read-only and optional for Phase 1.
 
 ### Shop
-Represents an Etsy shop connected to PrintHub.
-```
+
+Represents the Etsy shop connected to a workspace.
+
+```text
 Shop
-├── Id: Guid (PK)
-├── UserId: Guid (FK)
-├── Provider: string ("etsy")
-├── ExternalId: string (Etsy shop ID)
-├── AccessToken: string (encrypted)
-├── RefreshToken: string (encrypted)
-├── ShopName: string
-├── IsActive: bool
-├── LastSyncAt: DateTime?
-└── Products: List<Product>
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- ConnectedByUserId: Guid (FK)
+|-- Provider: string ("etsy")
+|-- ExternalId: string
+|-- AccessToken: string (encrypted)
+|-- RefreshToken: string (encrypted)
+|-- ShopName: string
+|-- IsActive: bool
+|-- LastListingSyncAt: DateTime?
+|-- LastOrderSyncAt: DateTime?
+|-- CreatedAt: DateTime
+`-- UpdatedAt: DateTime
 ```
+
+Phase 1 supports one active Etsy shop per workspace. The model allows additional shops later.
 
 ### Product
-A product as it appears on Etsy (or a standalone product not yet on Etsy).
-```
+
+An Etsy listing or manual product that can be mapped to printable parts.
+
+```text
 Product
-├── Id: Guid (PK)
-├── ShopId: Guid (FK)
-├── ExternalListingId: string? (Etsy listing ID)
-├── Name: string
-├── Description: string?
-├── EtsyPrice: decimal?
-├── ImageUrl: string?
-├── IsActive: bool
-├── PrintCount: int (how many printed historically)
-├── InventoryOnHand: int (printed - sold)
-├── ReorderPoint: int?
-├── ReorderQuantity: int?
-├── CostPerPrint: decimal?
-├── CreatedAt: DateTime
-├── UpdatedAt: DateTime
-└── ProductParts: List<ProductPart>
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- ShopId: Guid? (FK)
+|-- ExternalListingId: string?
+|-- Name: string
+|-- Description: string?
+|-- EtsyPrice: decimal?
+|-- ImageUrl: string?
+|-- IsActive: bool
+|-- RequiresPersonalization: bool
+|-- PersonalizationSchemaJson: string?
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+`-- ProductParts: List<ProductPart>
 ```
 
+Inventory and cost fields can be added in Phase 2. Phase 1 should not block file preparation on inventory completeness.
+
 ### Part
-A reusable component that can be printed.
-```
+
+A reusable printable component.
+
+```text
 Part
-├── Id: Guid (PK)
-├── ShopId: Guid (FK)
-├── Name: string
-├── Description: string?
-├── IsGeneric: bool (shared across products vs product-specific)
-├── CurrentVersionId: Guid? (FK to PrintFileVersion)
-├── CostPerUnit: decimal (filament + electricity estimate)
-├── InventoryOnHand: int (for generic parts, printed but unassigned)
-├── CreatedAt: DateTime
-├── UpdatedAt: DateTime
-└── PrintFileVersions: List<PrintFileVersion>
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- Name: string
+|-- Description: string?
+|-- IsGeneric: bool
+|-- CurrentVersionId: Guid? (FK to PrintFileVersion)
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+`-- PrintFiles: List<PrintFile>
 ```
 
 ### ProductPart
-Junction table linking Products to Parts with quantities.
-```
+
+Junction table linking products to parts and quantities.
+
+```text
 ProductPart
-├── Id: Guid (PK)
-├── ProductId: Guid (FK)
-├── PartId: Guid (FK)
-├── QuantityPerProduct: int
-└── SortOrder: int (for display/printing sequence)
+|-- Id: Guid (PK)
+|-- ProductId: Guid (FK)
+|-- PartId: Guid (FK)
+|-- QuantityPerProduct: int
+|-- SortOrder: int
+`-- PreparationNotes: string?
 ```
 
 ### PrintFile
-A 3D model file (STL, 3MF, OBJ, etc.) with version tracking.
-```
+
+A logical source file attached to a part. Each upload creates a version.
+
+```text
 PrintFile
-├── Id: Guid (PK)
-├── PartId: Guid (FK)
-├── FileName: string
-├── FileType: string (".stl", ".3mf", ".obj")
-├── FileSizeBytes: long
-├── CurrentVersionNumber: int
-├── IsDeleted: bool
-├── CreatedAt: DateTime
-├── UpdatedAt: DateTime
-└── Versions: List<PrintFileVersion>
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- PartId: Guid (FK)
+|-- FileName: string
+|-- FileType: string (".stl", ".3mf")
+|-- CurrentVersionNumber: int
+|-- IsDeleted: bool
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+`-- Versions: List<PrintFileVersion>
 ```
 
 ### PrintFileVersion
-Each upload creates a new version.
-```
+
+Immutable uploaded file version.
+
+```text
 PrintFileVersion
-├── Id: Guid (PK)
-├── PrintFileId: Guid (FK)
-├── VersionNumber: int
-├── FilePath: string (blob storage path)
-├── FileHash: string (SHA-256 for integrity)
-├── ThumbnailPath: string?
-├── UploadedAt: DateTime
-└── Notes: string?
+|-- Id: Guid (PK)
+|-- PrintFileId: Guid (FK)
+|-- WorkspaceId: Guid (FK)
+|-- VersionNumber: int
+|-- FilePath: string
+|-- FileHash: string
+|-- FileSizeBytes: long
+|-- ThumbnailPath: string?
+|-- UploadedByUserId: Guid (FK)
+|-- UploadedAt: DateTime
+`-- Notes: string?
 ```
 
-### PrintJob
-A request to print one or more items.
-```
-PrintJob
-├── Id: Guid (PK)
-├── UserId: Guid (FK)
-├── ShopId: Guid (FK)
-├── Status: PrintJobStatus
-├── PrinterTarget: string? (printer serial/IP for non-Bambu)
-├── CreatedAt: DateTime
-├── StartedAt: DateTime?
-├── CompletedAt: DateTime?
-├── EstimatedMinutes: int?
-├── Notes: string?
-└── PrintJobItems: List<PrintJobItem>
+Source STL/3MF files are retained by default. Users may delete/purge them from the workspace when desired.
+
+### EtsyOrder
+
+Normalized order record synced from Etsy.
+
+```text
+EtsyOrder
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- ShopId: Guid (FK)
+|-- ExternalOrderId: string
+|-- CustomerName: string?
+|-- Status: EtsyOrderStatus
+|-- OrderedAt: DateTime
+|-- DueBy: DateTime?
+|-- RawPayloadJson: string?
+|-- CreatedAt: DateTime
+|-- UpdatedAt: DateTime
+`-- Items: List<EtsyOrderItem>
 ```
 
-### PrintJobStatus (enum)
+### EtsyOrderItem
+
+```text
+EtsyOrderItem
+|-- Id: Guid (PK)
+|-- EtsyOrderId: Guid (FK)
+|-- ProductId: Guid? (FK)
+|-- ExternalListingId: string?
+|-- ListingTitle: string
+|-- Quantity: int
+|-- VariationJson: string?
+|-- PersonalizationJson: string?
+`-- PreparationStatus: OrderItemPreparationStatus
 ```
-Pending
-Queued
-InProgress
+
+### EtsyOrderStatus
+
+```text
+Open
+ReadyToPrint
+Printed
 Completed
-Failed
 Cancelled
 ```
 
-### PrintJobItem
-A single item within a print job, linking to a specific Part version.
-```
-PrintJobItem
-├── Id: Guid (PK)
-├── PrintJobId: Guid (FK)
-├── PartId: Guid (FK)
-├── PrintFileVersionId: Guid (FK)
-├── Quantity: int
-├── Status: PrintJobItemStatus
-├── BambuTaskId: string? (from Bambu Cloud API)
-└── Notes: string?
-```
+### OrderItemPreparationStatus
 
-### PrintJobItemStatus (enum)
-```
-Pending
-Printing
-Completed
-Failed
-```
-
-### PersonalizedOrder
-For orders requiring personalization (custom text, name on product, etc.).
-```
-PersonalizedOrder
-├── Id: Guid (PK)
-├── ShopId: Guid (FK)
-├── EtsyOrderId: string?
-├── EtsyListingId: string?
-├── CustomerName: string?
-├── PersonalizationData: string (JSON, e.g., {"name": "Mike", "color": "blue"})
-├── Status: PersonalizedOrderStatus
-├── DueBy: DateTime?
-├── Notes: string?
-├── CreatedAt: DateTime
-└── PrintJobId: Guid? (FK, if queued for printing)
-```
-
-### PersonalizedOrderStatus (enum)
-```
-Received
-InPreparation
-QueuedForPrint
+```text
+NeedsMapping
+NeedsFiles
+NeedsPersonalization
+Ready
+Downloaded
 Printed
-Shipped
+Blocked
 ```
 
-### InventoryMovement
-Audit log for inventory changes.
-```
-InventoryMovement
-├── Id: Guid (PK)
-├── ShopId: Guid (FK)
-├── ProductId: Guid? (FK, null for generic part movements)
-├── PartId: Guid (FK)
-├── QuantityChange: int (+/-)
-├── Reason: string (Printed, Sold, Adjusted, Deleted)
-├── Reference: string? (PrintJobId, EtsyOrderId, etc.)
-├── CreatedAt: DateTime
+### PreparationBundle
+
+A generated record for one order or manual batch that says exactly what to download and print.
+
+```text
+PreparationBundle
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- EtsyOrderId: Guid? (FK)
+|-- CreatedByUserId: Guid (FK)
+|-- Status: PreparationBundleStatus
+|-- ManifestPath: string?
+|-- DownloadArchivePath: string?
+|-- CreatedAt: DateTime
+|-- DownloadedAt: DateTime?
+|-- CompletedAt: DateTime?
+`-- Items: List<PreparationBundleItem>
 ```
 
-### CostRecord
-Tracks cost data for products and parts.
+### PreparationBundleStatus
+
+```text
+Draft
+Blocked
+ReadyToDownload
+Downloaded
+Printed
+Cancelled
 ```
-CostRecord
-├── Id: Guid (PK)
-├── ShopId: Guid (FK)
-├── ProductId: Guid? (FK, null for standalone part costs)
-├── PartId: Guid? (FK)
-├── CostType: string (Filament, Electricity, Labor, Other)
-├── Amount: decimal
-├── Currency: string
-├── RecordedAt: DateTime
-└── Notes: string?
+
+### PreparationBundleItem
+
+```text
+PreparationBundleItem
+|-- Id: Guid (PK)
+|-- PreparationBundleId: Guid (FK)
+|-- ProductId: Guid? (FK)
+|-- PartId: Guid (FK)
+|-- PrintFileVersionId: Guid (FK)
+|-- Quantity: int
+|-- PersonalizationJson: string?
+|-- RequiresManualCustomization: bool
+|-- GeneratedFilePath: string?
+`-- Notes: string?
+```
+
+For Phase 1, generated output may be a manifest plus source files. Automated 3MF modification can be added incrementally; manual customization must be clearly represented when automation is not available.
+
+### AuditEvent
+
+Workspace-scoped audit trail for important changes.
+
+```text
+AuditEvent
+|-- Id: Guid (PK)
+|-- WorkspaceId: Guid (FK)
+|-- ActorUserId: Guid?
+|-- EntityType: string
+|-- EntityId: Guid?
+|-- Action: string
+|-- DetailsJson: string?
+`-- CreatedAt: DateTime
 ```
 
 ---
 
 ## Relationships Diagram
 
-```
+```text
 User
-  └── Shop (1:many)
-        ├── Product (1:many)
-        │     └── ProductPart (many:many with Part)
-        │           └── Part
-        │                 └── PrintFile (1:many)
-        │                       └── PrintFileVersion (1:many)
-        │
-        └── Part (1:many) — generic parts live here too
-
-PrintJob (1:many) PrintJobItem
-      │
-      └── PrintJobItem → Part
-                          → PrintFileVersion
-
-PersonalizedOrder (1:1 or 0:1) PrintJob
-
-InventoryMovement → Part or Product
-
-CostRecord → Part or Product
+  `-- WorkspaceMember
+        `-- Workspace
+              |-- Shop
+              |     `-- EtsyOrder
+              |           `-- EtsyOrderItem
+              |-- Product
+              |     `-- ProductPart
+              |           `-- Part
+              |                 `-- PrintFile
+              |                       `-- PrintFileVersion
+              `-- PreparationBundle
+                    `-- PreparationBundleItem
+                          |-- Product
+                          |-- Part
+                          `-- PrintFileVersion
 ```
 
 ---
 
-## Example: Wall Hook Product
+## Example: Personalized Sign Order
 
-### Data
-
-**Part: Generic Hook**
-- Id: `part-001`
-- Name: "Basic Wall Hook"
-- IsGeneric: true
-- CurrentVersionId: `version-001`
-- CostPerUnit: $0.15 (filament only)
-- InventoryOnHand: 12
-
-**Part: Dino Character**
-- Id: `part-002`
-- Name: "Dino Character Topper"
-- IsGeneric: false
-- CurrentVersionId: `version-002`
-- CostPerUnit: $0.30
-- InventoryOnHand: 0
-
-**Product: Dino Wall Hook**
-- Id: `product-001`
-- EtsyListingId: `etsy-listing-12345`
-- EtsyPrice: $24.99
-- InventoryOnHand: 4
-- ReorderPoint: 6
-- ReorderQuantity: 10
-
-**ProductPart entries:**
-| PartId | PartName | QtyPerProduct |
-|--------|----------|---------------|
-| part-001 | Basic Wall Hook | 1 |
-| part-002 | Dino Character Topper | 1 |
-
-### Print Queue Scenario
-
-User queues:
-- 5x Dino Wall Hook
-- 3x Cat Wall Hook (Cat character is `part-003`)
-- 2x Bear Wall Hook (Bear character is `part-004`)
-
-**System calculates:**
-- Generic hooks needed: 5 + 3 + 2 = 10
-- Current generic hook inventory: 12
-- Net inventory after print: 12 - 10 + 10 (printed) = 12 (replenished)
-
-**Print jobs generated:**
-| PrintJob | Part | Qty | Notes |
-|----------|------|-----|-------|
-| Job-001 | Basic Wall Hook | 10 | Single batch print, shared |
-| Job-002 | Dino Character | 5 | |
-| Job-003 | Cat Character | 3 | |
-| Job-004 | Bear Character | 2 | |
-
-User sees consolidated queue showing all items and total print time/filament.
-
----
-
-## Personalized Order Flow
-
-1. Etsy order received with personalization ("Name: Mike")
-2. System creates `PersonalizedOrder` with `PersonalizationData`
-3. Background worker generates customized 3MF (or flags for manual prep)
-4. `PrintJob` created with the personalized file version
-5. Print proceeds
-6. Status updates back to Etsy (if API supports)
+1. Etsy sync imports an order for 2 custom signs with personalization `{ "name": "Mia" }`.
+2. The Etsy listing maps to Product "Name Sign".
+3. Product "Name Sign" maps to one Part "Sign Base", quantity 1 per product.
+4. The preparation engine calculates 2 copies of the current file version.
+5. If automated personalization is available, the bundle item points to generated 3MF output.
+6. If automation is not available, the bundle is marked `Blocked` or `ReadyToDownload` with `RequiresManualCustomization = true`, depending on whether the base file is present.
+7. The user downloads the bundle and prints manually.
 
 ---
 
 ## Versioning Strategy
 
-- Print files are immutable once uploaded
-- New uploads create new versions under the same `PrintFile`
-- `CurrentVersionId` on `Part` points to active version
-- PrintJobs reference specific `PrintFileVersionId`, not the part
-- Historical jobs retain their version even if current version advances
+- Print files are immutable once uploaded.
+- New uploads create new versions under the same `PrintFile`.
+- `CurrentVersionId` on `Part` points to the active version.
+- Preparation bundles reference specific `PrintFileVersionId` values.
+- Historical bundles keep their file versions even if a current version changes later.

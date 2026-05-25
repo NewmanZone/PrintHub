@@ -2,23 +2,21 @@ import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
   LayoutDashboard,
-  Printer,
   Package,
-  ListOrdered,
-  Wrench,
+  Archive,
   Settings,
   ChevronDown,
   Boxes,
+  ShoppingCart,
 } from 'lucide-react'
 import './Sidebar.css'
 
 const navItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/queue', label: 'Queue', icon: ListOrdered },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/orders', label: 'Orders', icon: ShoppingCart },
   { to: '/products', label: 'Products', icon: Package },
   { to: '/parts', label: 'Parts', icon: Boxes },
-  { to: '/jobs', label: 'Jobs', icon: Wrench },
-  { to: '/printers', label: 'Printers', icon: Printer },
+  { to: '/bundles', label: 'Bundles', icon: Archive },
   { to: '/settings', label: 'Settings', icon: Settings },
 ]
 
@@ -45,7 +43,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ shopName = 'My Print Shop', co
           <>
             <span className="ph-sidebar__shop-label">Shop</span>
             <button className="ph-sidebar__shop-toggle">
-              <span className="ph-sidebar__shop-name">{shopName}</span>
+            <span className="ph-sidebar__shop-name">{shopName}</span>
               <ChevronDown size={14} />
             </button>
           </>
@@ -55,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ shopName = 'My Print Shop', co
 
       <nav className="ph-sidebar__nav">
         {navItems.map((item) => {
-          const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
+          const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
           const Icon = item.icon
           return (
             <NavLink

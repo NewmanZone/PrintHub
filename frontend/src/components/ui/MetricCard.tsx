@@ -19,7 +19,7 @@ export const MetricCard: React.FC<MetricCardProps> = ({ label, value, change, ic
       <div className="ph-metric-card__value">{value}</div>
       {change && (
         <div className={`ph-metric-card__change ph-metric-card__change--${change.direction}`}>
-          {change.direction === 'up' ? '↑' : '↓'} {change.text}
+          {change.direction === 'up' ? 'up' : 'down'} {change.text}
         </div>
       )}
     </div>

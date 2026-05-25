@@ -1,9 +1,20 @@
 import React from 'react'
-import { Panel } from '../components/ui/Panel'
+import { ShoppingCart } from 'lucide-react'
 import { DataTable } from '../components/ui/DataTable'
 import { EmptyState } from '../components/ui/EmptyState'
-import { ShoppingCart } from 'lucide-react'
+import { Panel } from '../components/ui/Panel'
+import { StatusChip } from '../components/ui/StatusChip'
 import { mockOrders, type MockOrder } from '../mocks'
+
+const orderStatusMap: Record<string, 'pending' | 'warning' | 'success' | 'queued' | 'completed'> = {
+  Received: 'pending',
+  NeedsMapping: 'warning',
+  NeedsFiles: 'warning',
+  NeedsPersonalization: 'warning',
+  ReadyToDownload: 'success',
+  Downloaded: 'queued',
+  Printed: 'completed',
+}
 
 export const Orders: React.FC = () => {
   if (mockOrders.length === 0) {
@@ -17,23 +28,33 @@ export const Orders: React.FC = () => {
   }
 
   return (
-    <div>
-      <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', marginBottom: 'var(--space-6)' }}>
-        Orders
-      </h1>
+    <div className="ph-page">
+      <div className="ph-page-header">
+        <div>
+          <p className="ph-page-kicker">Etsy intake</p>
+          <h1 className="ph-page-title">Orders</h1>
+          <p className="ph-page-description">Personalized orders, due dates, file readiness, and bundle preparation status.</p>
+        </div>
+      </div>
 
-      <Panel>
+      <Panel title="Recent orders">
         <DataTable
+          caption="Orders"
           columns={[
-            { key: 'etsyOrderId', header: 'Etsy Order' },
+            { key: 'etsyOrderId', header: 'Etsy order' },
             { key: 'productName', header: 'Product' },
             { key: 'customerName', header: 'Customer', width: '130px' },
-            { key: 'status', header: 'Status', width: '120px' },
-            { key: 'orderedAt', header: 'Ordered', width: '160px', render: (o: MockOrder) => new Date(o.orderedAt).toLocaleDateString() },
-            { key: 'dueBy', header: 'Due', width: '160px', render: (o: MockOrder) => new Date(o.dueBy).toLocaleDateString() },
+            {
+              key: 'status',
+              header: 'Status',
+              width: '170px',
+              render: (order: MockOrder) => <StatusChip status={orderStatusMap[order.status] ?? 'pending'} label={order.status} />,
+            },
+            { key: 'orderedAt', header: 'Ordered', width: '140px', render: (order: MockOrder) => new Date(order.orderedAt).toLocaleDateString(), sortValue: (order) => new Date(order.orderedAt).getTime() },
+            { key: 'dueBy', header: 'Due', width: '140px', render: (order: MockOrder) => new Date(order.dueBy).toLocaleDateString(), sortValue: (order) => new Date(order.dueBy).getTime() },
           ]}
           rows={mockOrders}
-          keyExtractor={(o: MockOrder) => o.id}
+          keyExtractor={(order: MockOrder) => order.id}
         />
       </Panel>
     </div>

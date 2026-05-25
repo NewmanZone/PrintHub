@@ -1,5 +1,7 @@
 # PrintHub - Print Queue & UI Design
 
+> **Later-phase note:** This document describes printer execution concepts that are no longer part of Phase 1. Phase 1 uses preparation bundles and manual downloads. Treat this document as Phase 3 reference material unless the roadmap is explicitly changed.
+
 ## Print Queue Overview
 
 The print queue is the core workflow. It transforms a list of "I want to print X of Product Y" into optimized print jobs, accounting for:

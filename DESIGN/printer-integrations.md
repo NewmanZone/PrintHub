@@ -1,81 +1,60 @@
 # PrintHub - Printer Integration Strategy
 
-## Overview
+## Phase
 
-PrintHub supports multiple printer families through an **adapter-based implementation**. This document locks the strategy for Bambu, OctoEverywhere/OctoPrint, and future Bambu expansion.
+Printer integrations are Phase 3 work. Phase 1 must not depend on Bambu, OctoEverywhere, direct print submission, live printer status, or automatic print queues.
 
-## Adapter Pattern
+Phase 1 stops at preparation bundles: the user downloads the right files and prints manually.
 
-All printer integrations implement a common interface:
+## Adapter Strategy
+
+When printer execution begins, all printer integrations should sit behind a common adapter interface.
 
 ```csharp
 public interface IPrinterAdapter
 {
-    string AdapterName { get; }
+    Task<IReadOnlyList<PrinterInfo>> GetPrintersAsync(CancellationToken ct);
     Task<PrinterStatus> GetStatusAsync(string printerId, CancellationToken ct);
-    Task<string> QueueJobAsync(PrintJob job, CancellationToken ct);
-    Task PauseJobAsync(string jobId, CancellationToken ct);
-    Task ResumeJobAsync(string jobId, CancellationToken ct);
-    Task CancelJobAsync(string jobId, CancellationToken ct);
+    Task<string> QueueJobAsync(PreparedPrintJob job, CancellationToken ct);
+    Task CancelJobAsync(string printerId, string externalJobId, CancellationToken ct);
 }
 ```
 
-Adapter registration is keyed by `PrinterType` at runtime.
+The Phase 3 implementation should adapt preparation bundles into printer-specific jobs. It should not rewrite Phase 1 product/file/order preparation concepts.
 
-## Supported Adapters
+## Candidate Adapters
 
-### 1. Bambu Connect (Primary)
+| Printer Family | Candidate Adapter | Notes |
+|----------------|-------------------|-------|
+| Bambu P1S/X1C/A1 | Bambu Connect / cloud APIs | Cloud-native, viable from spike, requires careful auth and API stability review |
+| OctoPrint/Klipper/Marlin | OctoEverywhere bridge | Useful for non-Bambu printers, requires user setup |
+| LAN-only Bambu | Experimental | Not a committed product path until explicitly approved |
 
-- **Path:** Direct cloud-native integration via Bambu Lab Connect API
-- **Printers:** P1S, X1C, A1, A1 Mini (and future Bambu models)
-- **Setup:** User provides serial number + access code; PrintHub calls Bambu Cloud
-- **Zero local infrastructure** — no Raspberry Pi, no VPN, no port forwarding
-- **Capabilities:** Full status, start/stop/pause, camera snapshot, AMS support
+## Phase 3 UI Flow
 
-### 2. OctoEverywhere / OctoPrint (Bridge)
+```text
+Settings -> Printers -> Add Printer
+  -> Select adapter
+  -> Connect account/device
+  -> Verify reachable status
+  -> Save printer
 
-- **Path:** OctoEverywhere cloud bridge to user's local OctoPrint instance
-- **Printers:** Any printer running OctoPrint (Klipper via OctoPrint-Klipper plugin, Marlin, etc.)
-- **Setup:** User installs OctoPrint + OctoEverywhere plugin; provides OctoEverywhere share URL
-- **Capabilities:** Status polling, job start/stop, basic camera (via OctoEverywhere)
-- **Limitations:** Depends on user's local network + OctoPrint uptime; slightly higher latency
-
-### 3. Bambu Spike (Experimental)
-
-- **Status:** Pre-MVP spike to validate LAN-only Bambu communication
-- **Goal:** Determine if direct LAN control (without Bambu Cloud) is viable for enterprise/self-hosted scenarios
-- **Commitment:** No MVP commitment. If the spike succeeds, it becomes Adapter 1b. If it fails, it stays in `experimental/` and does not block MVP.
-- **Owner:** Marked as `experimental` in code; gated behind feature flag
-
-## Adapter Selection Matrix
-
-| Printer Family | Recommended Adapter | Setup Complexity | Cloud Dependency |
-|----------------|---------------------|------------------|------------------|
-| Bambu P1S/X1C/A1 | Bambu Connect | Low | Bambu Cloud |
-| Klipper (Voron, Centauri) | OctoEverywhere | Medium | OctoEverywhere |
-| Marlin / Ender | OctoEverywhere | Medium | OctoEverywhere |
-| Bambu (LAN-only spike) | Bambu Spike | Low | None (experimental) |
-
-## Registration Flow
-
-```
-User → Settings → Printers → Add Printer
-  → Select Type (Bambu / OctoEverywhere)
-  → If Bambu: enter Serial + Access Code
-  → If OctoEverywhere: enter Share URL
-  → PrintHub validates connection
-  → Printer saved with adapter type persisted
+Preparation Bundle -> Send to Printer
+  -> Select printer
+  -> Confirm file/job details
+  -> Submit
+  -> Track live status
 ```
 
 ## Implementation Notes
 
-- Each adapter lives in `PrintHub.Infrastructure/Services/Printers/`
-- Adapters are registered in DI via `IServiceCollection.AddPrinterAdapters()`
-- Adapter failures are isolated: one printer's OctoEverywhere timeout does not affect Bambu printers
-- Retry policy: 3 retries with exponential backoff for transient cloud errors
+- Printer adapters should live under `PrintHub.Infrastructure/Services/Printers/`.
+- Adapter failures must not affect file preparation or downloads.
+- A workspace should be able to use PrintHub without any connected printers.
+- Keep printer credentials encrypted and auditable.
 
 ## Lock
 
-- **Do not add a third primary adapter before MVP ships.**
-- **Do not remove the Bambu Spike experimental gate without team review.**
-- **Do not commit to Bambu LAN-only in marketing/docs until spike passes.**
+- Do not add printer integration to the Phase 1 critical path.
+- Do not require Bambu credentials for onboarding.
+- Do not market LAN-only Bambu support until a dedicated spike and product review approve it.

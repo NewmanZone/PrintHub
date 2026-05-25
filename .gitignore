@@ -11,6 +11,9 @@ obj/
 # Test results
 TestResults/
 *.trx
+frontend/test-results/
+frontend/playwright-report/
+infra/main.json
 
 # NuGet
 packages/

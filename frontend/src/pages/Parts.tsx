@@ -1,9 +1,10 @@
 import React from 'react'
-import { Panel } from '../components/ui/Panel'
-import { DataTable } from '../components/ui/DataTable'
+import { Boxes, Plus } from 'lucide-react'
 import { Button } from '../components/ui/Button'
+import { DataTable } from '../components/ui/DataTable'
 import { EmptyState } from '../components/ui/EmptyState'
-import { Boxes } from 'lucide-react'
+import { Panel } from '../components/ui/Panel'
+import { StatusChip } from '../components/ui/StatusChip'
 import { mockParts, type MockPart } from '../mocks'
 
 export const Parts: React.FC = () => {
@@ -13,30 +14,35 @@ export const Parts: React.FC = () => {
         icon={<Boxes size={24} />}
         title="No parts yet"
         description="Add a part and upload a print file to build your product catalog."
-        action={<Button>Add Part</Button>}
+        action={<Button>Add part</Button>}
       />
     )
   }
 
   return (
-    <div>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 'var(--space-6)' }}>
-        <h1 style={{ fontSize: 'var(--text-2xl)', fontWeight: 'var(--font-bold)', margin: 0 }}>Parts</h1>
-        <Button size="sm">Add Part</Button>
+    <div className="ph-page">
+      <div className="ph-page-header">
+        <div>
+          <p className="ph-page-kicker">Printable inventory</p>
+          <h1 className="ph-page-title">Parts</h1>
+          <p className="ph-page-description">Track generic and product-specific print files, versions, costs, and on-hand inventory.</p>
+        </div>
+        <div className="ph-page-actions"><Button size="sm" iconLeft={<Plus size={16} />}>Add part</Button></div>
       </div>
 
-      <Panel>
+      <Panel title="Part catalog">
         <DataTable
+          caption="Parts"
           columns={[
             { key: 'name', header: 'Name' },
-            { key: 'isGeneric', header: 'Generic', width: '90px', render: (p: MockPart) => (p.isGeneric ? 'Yes' : 'No') },
-            { key: 'currentVersionNumber', header: 'Version', width: '90px' },
-            { key: 'costPerUnit', header: 'Cost', width: '90px', render: (p: MockPart) => `$${p.costPerUnit.toFixed(2)}` },
-            { key: 'inventoryOnHand', header: 'Stock', width: '80px' },
-            { key: 'inventoryValue', header: 'Value', width: '90px', render: (p: MockPart) => `$${p.inventoryValue.toFixed(2)}` },
+            { key: 'isGeneric', header: 'Type', width: '120px', render: (p: MockPart) => <StatusChip status={p.isGeneric ? 'queued' : 'draft'} label={p.isGeneric ? 'Generic' : 'Specific'} /> },
+            { key: 'currentVersionNumber', header: 'Version', width: '100px' },
+            { key: 'costPerUnit', header: 'Cost', width: '100px', render: (p: MockPart) => `$${p.costPerUnit.toFixed(2)}`, sortValue: (p) => p.costPerUnit },
+            { key: 'inventoryOnHand', header: 'Stock', width: '90px', sortValue: (p) => p.inventoryOnHand },
+            { key: 'inventoryValue', header: 'Value', width: '100px', render: (p: MockPart) => `$${p.inventoryValue.toFixed(2)}`, sortValue: (p) => p.inventoryValue },
           ]}
           rows={mockParts}
-          keyExtractor={(p: MockPart) => p.id}
+          keyExtractor={(part: MockPart) => part.id}
         />
       </Panel>
     </div>

@@ -2,115 +2,173 @@
 
 ## Overview
 
-PrintHub's web UI is a **single-page application (SPA)** built with React + TypeScript. This document locks the high-level page structure, navigation model, and state boundaries.
+PrintHub's web UI is a single-page application built with React + TypeScript. Phase 1 is a shared Etsy production workspace, so the UI should optimize for a small team preparing the right print files from real Etsy orders.
+
+The authenticated app should feel like a calm operations console: fast to scan, clear about blocking work, and beautiful without becoming decorative.
 
 ## Page Inventory
 
 | Route | Page | Purpose |
 |-------|------|---------|
-| `/` | Landing | Public marketing page, feature overview, CTA to OAuth login |
-| `/dashboard` | Dashboard | KPIs, alerts, insights, top performers, inventory overview |
-| `/queue` | Print Queue | Queue management, consolidated view, print execution |
-| `/products` | Product List | All products with search, filter, quick actions |
-| `/products/:id` | Product Detail | Product info, parts, versions, history, settings |
-| `/printers` | Printers | List, add, remove, status for all registered printers |
-| `/settings` | Settings | General, shop connections, notifications, billing |
-| `/jobs/:id` | Job Detail | Live job progress, logs, controls (pause/resume/cancel) |
-| `/insights` | Insights (future) | Full analytics, sales velocity, seasonal trends |
+| `/` | Landing | Public page with product value, visual product signal, and OAuth CTA |
+| `/dashboard` | Dashboard | Workspace overview: open orders, ready bundles, missing files, Etsy sync health |
+| `/orders` | Orders | Etsy order inbox with preparation status, due dates, and blockers |
+| `/orders/:id` | Order Detail | Line items, personalization, product mapping, bundle generation, download |
+| `/products` | Product List | Etsy/manual products with file coverage and personalization indicators |
+| `/products/:id` | Product Detail | Product info, mapped parts, file versions, Etsy listing metadata, prep rules |
+| `/parts` | Parts | Reusable printable parts and current source file status |
+| `/bundles` | Preparation Bundles | Recent generated/downloaded bundles and manual batch bundles |
+| `/bundles/:id` | Bundle Detail | Manifest, files, quantities, manual customization notes, download |
+| `/settings` | Settings | Workspace profile, Etsy connection, members, file retention, notifications |
+| `/jobs` | Jobs | Later phase print job history; Phase 1 may hide or show as "Coming later" |
+| `/printers` | Printers | Later phase printer adapters; Phase 1 may hide or show as "Coming later" |
+
+## Landing Page
+
+The landing page is for people not yet signed up. It should make the Phase 1 promise obvious:
+
+- Sign in with OAuth.
+- Connect Etsy.
+- Invite a contributor.
+- Map products to 3MF/STL files.
+- Download the right files for each order.
+
+The first viewport should show PrintHub as the literal product name and include a high-quality visual of an Etsy order being turned into a print-ready file bundle. The visual can be implemented as a coded UI composition now, then upgraded with generated or photographed product/file imagery later.
 
 ## Navigation Model
 
-- **Top navigation** on all authenticated pages: Home → Dashboard → Queue → Products → Printers → Settings
-- **Breadcrumbs** on detail pages: Products → Dino Wall Hook
-- **Contextual actions** in page headers (e.g., + Add to Queue, + Add Printer)
-- **No sidebar** on mobile; hamburger menu replaces topnav links
-- **Side nav** appears at `md` breakpoint (768px) for faster navigation on desktop
+- Authenticated desktop uses a side nav for: Dashboard, Orders, Products, Parts, Bundles, Settings.
+- Mobile uses bottom navigation for the highest-frequency pages: Dashboard, Orders, Products, Bundles, Settings.
+- Printer and job navigation should not be primary in Phase 1.
+- Detail pages use breadcrumbs, for example: Products -> Custom Name Sign.
+- Page headers expose one primary action only when possible: Sync Etsy, Upload File, Generate Bundle, Download Bundle.
 
 ## State Boundaries
 
 ### Server State (React Query)
-- Products, parts, files, versions
-- Print queue, jobs, job items
-- Printers and their live status
-- Shop connections and sync state
-- Insights/analytics data
 
-**Stale time:** 30s for lists, 5s for active jobs, 60s for insights.
+- Workspaces and memberships
+- Etsy shop connection and sync state
+- Products, parts, files, versions
+- Orders, order items, preparation statuses
+- Preparation bundles and download state
+- Dashboard insights
+
+Stale time: 30s for lists, 10s for active sync/order prep state, 60s for dashboard summaries.
 
 ### Client State (Zustand)
-- Authentication session (token, user profile)
-- UI preferences (theme, density, timezone)
-- Form drafts (add-to-queue wizard, product edit)
+
+- Authentication session mirror and selected workspace id
+- UI preferences such as density and timezone
+- Form drafts for product mapping, part editing, and bundle generation
 - Modal/dialog stack
 - Toast/notification queue
 
 ### URL State
-- Active tab/pane on detail pages (`?tab=history`)
-- Filter/sort on lists (`?search=dino&status=low`)
+
+- Active tab on detail pages (`?tab=files`)
+- Filter/sort on lists (`?search=sign&status=NeedsFiles`)
 - Pagination (`?page=2`)
 
 ## Data Flow
 
-```
-User action → Zustand (draft/optimistic) → React Query mutation → API →
-  → On success: invalidate queries, clear draft, show toast
-  → On error: rollback optimistic, show error toast, log to console
+```text
+User action -> local draft or optimistic state -> React Query mutation -> API
+  -> Success: invalidate affected queries, clear draft, show toast
+  -> Error: rollback optimistic state, preserve draft, show actionable error
 ```
 
 ## Component Hierarchy
 
-```
+```text
 App
-├── Layout
-│   ├── TopNav
-│   └── SideNav (md+)
-├── Pages
-│   ├── LandingPage
-│   ├── DashboardPage
-│   ├── QueuePage
-│   ├── ProductsPage
-│   ├── ProductDetailPage
-│   ├── PrintersPage
-│   ├── SettingsPage
-│   └── JobDetailPage
-├── Shared
-│   ├── Card, Metric, Badge, Button, Input, Select
-│   ├── DataTable (sortable, paginated)
-│   ├── StatusBadge (canonical 8 statuses)
-│   ├── Modal, Drawer, Toast
-│   ├── SkeletonLoader
-│   └── EmptyState
-└── Features
-    ├── QueueWizard (AddToQueue multi-step)
-    ├── ProductEditor
-    ├── PrinterRegistration
-    └── JobControls
+|-- PublicLayout
+|   `-- LandingPage
+|-- AppShell
+|   |-- SideNav
+|   |-- MobileBottomNav
+|   `-- WorkspaceSwitcher
+|-- Pages
+|   |-- DashboardPage
+|   |-- OrdersPage
+|   |-- OrderDetailPage
+|   |-- ProductsPage
+|   |-- ProductDetailPage
+|   |-- PartsPage
+|   |-- BundlesPage
+|   |-- BundleDetailPage
+|   `-- SettingsPage
+|-- Shared UI
+|   |-- Button, IconButton, Input, Select, Checkbox, Tabs
+|   |-- Panel, MetricCard, DataTable, StatusChip
+|   |-- Modal, Drawer, Toast, SkeletonLoader, EmptyState
+|   `-- FileDropzone, FileVersionList, ManifestList
+`-- Features
+    |-- EtsyConnectPanel
+    |-- MemberInvitePanel
+    |-- ProductMappingEditor
+    |-- PreparationBundleWizard
+    `-- PersonalizationReview
 ```
 
-## Mock Data Strategy (Prototype)
+## Phase 1 Primary Workflows
 
-The static prototype (`prototypes/printhub-ui/index.html`) uses hardcoded HTML to demonstrate every page above. It is **self-contained**: open `index.html` in any browser without a server or backend.
+### Workspace Onboarding
 
-When backend implementation begins, the same page components will swap HTML for React components that call the real API.
+1. User signs in with OAuth.
+2. User creates or selects a workspace.
+3. User connects Etsy.
+4. User invites dad as a contributor.
+5. Dashboard shows sync state and next setup tasks.
+
+### Product File Setup
+
+1. Product imports from Etsy or is created manually.
+2. User maps product to one or more parts.
+3. User uploads current 3MF/STL file for each part.
+4. Product list shows file coverage as complete, partial, or missing.
+
+### Order Preparation
+
+1. Etsy order appears in Orders.
+2. User opens order detail and reviews line items.
+3. User resolves missing product mapping or missing files.
+4. User generates a preparation bundle.
+5. User downloads bundle ZIP with files and manifest.
+6. User marks bundle/order printed after manual printing.
+
+## Visual Asset Guidance
+
+Phase 1 implementation can start with coded UI mock visuals, but issues should ask for real assets or generated mockups where beauty matters:
+
+- Product thumbnails: neutral build-plate background, actual product photo/render when available.
+- File thumbnails: small 3D model preview or generated placeholder per file type.
+- Landing hero visual: order card -> manifest -> 3MF/STL bundle composition, preferably generated as a polished bitmap once the layout is stable.
+- Icons: use the configured icon library for actions; avoid hand-drawn SVG except for product/file mock visuals.
+- Empty states: compact, practical visuals showing missing file, no Etsy connection, or no orders.
 
 ## Responsive Strategy
 
 | Breakpoint | Layout Changes |
 |------------|----------------|
-| < md | Single column, hamburger nav, metric cards 2×2 |
-| md–lg | Side nav appears, tables scroll horizontally |
-| lg+ | Full two-column detail pages, side-by-side panels |
-| xl | Maximum content width 1280px centered |
+| `< md` | Single column, bottom nav, compact tables become list rows |
+| `md-lg` | Side nav appears, list/detail pages remain single column where needed |
+| `lg+` | Detail pages use two columns: main work area plus status/metadata rail |
+| `xl` | Max content width 1440px; dense dashboard and tables |
 
 ## Accessibility
 
-- Route changes announce via live region
-- Focus trap in modals
-- Skip link to main content
-- All interactive elements keyboard reachable
+- Route changes announce via live region.
+- Focus trap in modals and drawers.
+- Skip link to main content.
+- All interactive elements keyboard reachable.
+- File upload controls must be usable without drag-and-drop.
+- Color cannot be the only indicator of preparation status.
 
 ## Lock
 
-- **Do not add new top-level pages without updating the prototype.**
-- **Do not mix server and client state in the same store.**
-- **Do not introduce a state management library other than React Query + Zustand.**
+- Do not add password-based auth UI. OAuth only.
+- Do not make printer pages required for Phase 1 completion.
+- Do not add new top-level pages without updating this document and the frontend prototype/app shell.
+- Do not mix server and client state in the same store.
+- Do not introduce a state management library other than React Query + Zustand.

@@ -23,3 +23,11 @@
 .ph-status-chip--error  .ph-status-chip__dot { background: var(--status-error); }
 .ph-status-chip--warning .ph-status-chip__dot { background: var(--status-busy); }
 .ph-status-chip--success .ph-status-chip__dot { background: var(--status-online); }
+.ph-status-chip--draft .ph-status-chip__dot { background: var(--status-draft); }
+.ph-status-chip--pending .ph-status-chip__dot { background: var(--status-busy); }
+.ph-status-chip--queued .ph-status-chip__dot { background: var(--teal); }
+.ph-status-chip--in-progress .ph-status-chip__dot { background: var(--teal-soft); }
+.ph-status-chip--paused .ph-status-chip__dot { background: var(--status-paused); }
+.ph-status-chip--completed .ph-status-chip__dot { background: var(--status-online); }
+.ph-status-chip--failed .ph-status-chip__dot { background: var(--status-error); }
+.ph-status-chip--cancelled .ph-status-chip__dot { background: var(--status-offline); }

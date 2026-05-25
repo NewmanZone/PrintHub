@@ -1,19 +1,19 @@
 import React from 'react'
 import { NavLink, useLocation } from 'react-router-dom'
 import {
+  Archive,
   LayoutDashboard,
-  ListOrdered,
   Package,
-  Wrench,
   Settings,
+  ShoppingCart,
 } from 'lucide-react'
 import './MobileBottomNav.css'
 
 const mobileItems = [
-  { to: '/', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/queue', label: 'Queue', icon: ListOrdered },
+  { to: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { to: '/orders', label: 'Orders', icon: ShoppingCart },
   { to: '/products', label: 'Products', icon: Package },
-  { to: '/jobs', label: 'Jobs', icon: Wrench },
+  { to: '/bundles', label: 'Bundles', icon: Archive },
   { to: '/settings', label: 'More', icon: Settings },
 ]
 
@@ -23,7 +23,7 @@ export const MobileBottomNav: React.FC = () => {
   return (
     <nav className="ph-mobile-nav" aria-label="Mobile navigation">
       {mobileItems.map((item) => {
-        const isActive = location.pathname === item.to || (item.to !== '/' && location.pathname.startsWith(item.to))
+        const isActive = location.pathname === item.to || location.pathname.startsWith(`${item.to}/`)
         const Icon = item.icon
         return (
           <NavLink
