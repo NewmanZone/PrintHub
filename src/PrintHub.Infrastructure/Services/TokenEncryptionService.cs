@@ -21,6 +21,7 @@ public interface IOAuthStateStore
 {
     void SaveState(string state, string userId, string returnUrl, TimeSpan expiry, string? codeVerifier = null);
     (string? userId, string? returnUrl, string? codeVerifier) GetState(string state);
+    void DeleteState(string state);
 }
 
 /// <summary>
@@ -116,5 +117,10 @@ public class InMemoryOAuthStateStore : IOAuthStateStore
         }
 
         return (entry.userId, entry.returnUrl, entry.codeVerifier);
+    }
+
+    public void DeleteState(string state)
+    {
+        _states.Remove(state);
     }
 }

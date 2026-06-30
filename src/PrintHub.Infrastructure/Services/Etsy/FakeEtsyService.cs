@@ -105,10 +105,12 @@ public class FakeEtsyService : IEtsyService
             Description = l.Description,
             Price = l.Price,
             ImageUrl = l.ImageUrl,
+            MainImageUrl = l.ImageUrl,
+            ImageUrls = string.IsNullOrWhiteSpace(l.ImageUrl) ? new List<string>() : new List<string> { l.ImageUrl },
             IsActive = l.IsActive,
-            CreatedAt = l.CreatedAt,
-            UpdatedAt = l.UpdatedAt,
-            State = l.State
+            CreatedAt = l.CreatedAt ?? DateTime.UtcNow,
+            UpdatedAt = l.UpdatedAt ?? DateTime.UtcNow,
+            State = l.State ?? string.Empty
         }));
     }
 

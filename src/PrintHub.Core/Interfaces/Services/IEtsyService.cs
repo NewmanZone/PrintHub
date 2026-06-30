@@ -29,6 +29,11 @@ public interface IEtsyService
     /// Retrieves active listings for the given Etsy shop.
     /// </summary>
     Task<IEnumerable<EtsyListing>> GetListingsAsync(string accessToken, string shopId);
+
+    /// <summary>
+    /// Checks whether the supplied access token can still be used with Etsy.
+    /// </summary>
+    Task<bool> ValidateTokenAsync(string accessToken);
 }
 
 /// <summary>
@@ -65,6 +70,8 @@ public class EtsyListing
     public string State { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; }
     public DateTime UpdatedAt { get; set; }
+    public string? ImageUrl { get; set; }
+    public bool IsActive { get; set; }
     public string? MainImageUrl { get; set; }
     public List<string> ImageUrls { get; set; } = new();
 }

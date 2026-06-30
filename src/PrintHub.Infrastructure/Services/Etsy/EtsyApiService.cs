@@ -198,17 +198,20 @@ public class EtsyApiService : IEtsyService
             
             foreach (var item in listingData.Results)
             {
+                var imageUrl = item.MainImage?.UrlFull ?? item.Images?.FirstOrDefault()?.UrlFull;
                 listings.Add(new EtsyListing
                 {
                     ListingId = item.ListingId.ToString(),
                     Title = item.Title ?? string.Empty,
                     Description = item.Description,
                     Price = item.Price ?? 0,
-                    ImageUrl = item.MainImage?.UrlFull ?? item.Images?.FirstOrDefault()?.UrlFull,
+                    ImageUrl = imageUrl,
+                    MainImageUrl = imageUrl,
+                    ImageUrls = item.Images?.Select(i => i.UrlFull).Where(url => !string.IsNullOrWhiteSpace(url)).Cast<string>().ToList() ?? new List<string>(),
                     IsActive = item.State == "active",
-                    CreatedAt = item.CreationDate,
-                    UpdatedAt = item.LastModifiedDate,
-                    State = item.State
+                    CreatedAt = item.CreationDate ?? DateTime.UtcNow,
+                    UpdatedAt = item.LastModifiedDate ?? DateTime.UtcNow,
+                    State = item.State ?? string.Empty
                 });
             }
             
