@@ -2,48 +2,48 @@
 
 ## Overview
 
-PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printing operations. It enables print-on-demand sellers to manage products, track inventory, queue prints, and gain business insights—all from a single dashboard.
+PrintHub is a cloud-hosted SaaS platform for small Etsy-based 3D print shops. Phase 1 helps a shop owner and trusted contributors keep products, source files, and incoming orders in one shared workspace, then prepare downloadable file bundles for manual printing.
+
+Printer execution is intentionally a later phase.
 
 ## Goals
 
-- **Zero local setup** for Bambu printers (cloud-native integration)
-- **Guided onboarding** for other printers (OctoAnywhere bridge instructions)
-- **Security-first** — STL/3MF files are ephemeral assets
-- **Business intelligence** — help sellers optimize inventory and pricing
-- **Personalized orders** — handle customizations from Etsy orders seamlessly
+- Shared Etsy production workspace for a shop owner and contributors.
+- OAuth-only sign-in with workspace-scoped authorization.
+- Etsy listing and order sync.
+- Product-to-part-to-file mapping with versioned STL/3MF uploads.
+- Order-to-file preparation so users can download the right bundle for each order.
+- Clear handling of personalization and manual customization.
+- Source file retention by default with user-controlled deletion/purge.
+- Later printer execution through Bambu or OctoEverywhere adapters after Phase 1.
 
 ---
 
 ## High-Level Architecture
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              PrintHub Azure                              │
-│                                                                         │
-│  ┌─────────────────────────────────────────────────────────────────┐   │
-│  │                      ASP.NET Core Web API                        │   │
-│  │                                                                   │   │
-│  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────────┐ │   │
-│  │  │ Products │  │  Parts   │  │   Jobs   │  │ Insight Engine  │ │   │
-│  │  └──────────┘  └──────────┘  └──────────┘  └──────────────────┘ │   │
-│  └─────────────────────────────────────────────────────────────────┘   │
-│                                │                                          │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐                   │
-│  │ Azure Cosmos │  │ Azure Blob   │  │ Azure Funcs  │                   │
-│  │     DB       │  │   Storage    │  │  (Jobs/API)  │                   │
-│  └──────────────┘  └──────────────┘  └──────────────┘                   │
-└──────────────────────────────────────────────────────────────────────────┘
-           │                    │                    │
-    ┌──────┴──────┐      ┌─────┴─────┐       ┌──────┴──────┐
-    │ Bambu Cloud │      │   User     │       │  Etsy API   │
-    │  (P1S/X1C)  │      │  Browser   │       │             │
-    └─────────────┘      └────────────┘       └─────────────┘
-           │
-    ┌──────┴──────┐
-    │ OctoAnywhere│
-    │  (Other     │
-    │  Printers)  │
-    └─────────────┘
+```text
+                             PrintHub Azure
+
+  +------------------------------------------------------------------+
+  |                       ASP.NET Core 8 API                         |
+  |                                                                  |
+  |  Workspaces  Auth  Etsy Sync  Products  Files  Orders  Bundles   |
+  +------------------------------------------------------------------+
+        |             |               |               |
+        v             v               v               v
+  +------------+  +-----------+  +-------------+  +------------------+
+  | Cosmos DB  |  | Blob      |  | Azure       |  | OAuth/B2C        |
+  |            |  | Storage   |  | Functions   |  | Identity Provider|
+  +------------+  +-----------+  +-------------+  +------------------+
+        ^                              |
+        |                              v
+  +-------------+              +---------------+
+  | React SPA   |              | Etsy API      |
+  | User Browser|              | Listings/Orders|
+  +-------------+              +---------------+
+
+Later Phase:
+  Preparation Bundles -> Printer Adapter Contracts -> Bambu/OctoEverywhere
 ```
 
 ---
@@ -51,32 +51,42 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
 ## Core Components
 
 ### 1. PrintHub.API
-- **ASP.NET Core 8** Web API
-- RESTful endpoints for all operations
-- JWT authentication
-- Swagger/OpenAPI documentation
+
+- ASP.NET Core 8 Web API.
+- REST endpoints for workspaces, members, Etsy connection, products, parts, files, orders, and preparation bundles.
+- JWT bearer authentication from OAuth/B2C.
+- Workspace-scoped authorization on every protected endpoint.
+- Swagger/OpenAPI documentation.
 
 ### 2. PrintHub.Core
-- Domain entities
-- Interfaces (repository, services)
-- Business logic
+
+- Domain entities and value objects.
+- Repository and service interfaces.
+- Preparation bundle planning logic.
+- Workspace role/permission rules.
 
 ### 3. PrintHub.Infrastructure
-- Entity Framework Core (Cosmos DB provider)
-- Azure Blob Storage integration
-- Bambu Connect API client
-- Etsy API client
-- OctoAnywhere API client
+
+- Cosmos DB persistence.
+- Azure Blob Storage file storage.
+- Etsy API client.
+- OAuth provider integration.
+- Later phase: printer adapter implementations.
 
 ### 4. PrintHub.Worker
-- Azure Functions for background jobs
-- Etsy order polling
-- Inventory sync
-- Alert generation
 
-### 5. PrintHub.Frontend (future)
-- React or Blazor (separate repo)
-- Web dashboard for users
+- Etsy listing/order sync jobs.
+- Webhook processing.
+- File thumbnail/metadata jobs where needed.
+- Bundle archive generation.
+- Later phase: printer job monitoring.
+
+### 5. PrintHub.Frontend
+
+- React + TypeScript SPA.
+- Public landing page.
+- Authenticated workspace app shell.
+- Dashboard, orders, products, parts, bundles, and settings.
 
 ---
 
@@ -84,78 +94,76 @@ PrintHub is a cloud-hosted SaaS platform that bridges Etsy stores with 3D printi
 
 | Data | Storage | Rationale |
 |------|---------|-----------|
-| User accounts, shops | Azure Cosmos DB | Flexible schema, global distribution |
-| Products, parts, versions | Azure Cosmos DB | Fast reads, easy to query |
-| STL/3MF files | Azure Blob Storage | Cheaper than DB, signed URLs for security |
-| Print job history | Azure Cosmos DB | TTL for auto-expiration if needed |
-| Audit logs | Azure Cosmos DB or Table Storage | Queryable, time-ordered |
+| Users, workspaces, memberships | Cosmos DB | Flexible document model and workspace-scoped queries |
+| Shops, products, parts, orders | Cosmos DB | Fast workspace-scoped reads |
+| Preparation bundle manifests | Cosmos DB + Blob Storage | Query metadata in DB, archive files in Blob |
+| Source STL/3MF files | Azure Blob Storage | Cost-effective binary storage, signed URLs |
+| Audit logs | Cosmos DB or Table Storage | Time-ordered workspace audit trail |
 
 ---
 
 ## Security Considerations
 
-- **Files never stored long-term** — auto-purge after slicing (configurable)
-- **Encryption at rest** — Azure Storage with customer-managed keys
-- **Signed URLs** — time-limited access to STL/3MF files
-- **Ephemeral compute** — slicing in isolated containers
-- **No AI training** — explicit policy: user files are never used for AI training
-- **SOC 2 Type II** — roadmap goal for enterprise trust
+- Source STL/3MF files are retained by default and can be deleted or purged by authorized users.
+- Generated bundle archives are short-lived by default.
+- Etsy tokens and other secrets are encrypted at rest.
+- File downloads use time-limited signed URLs or authenticated streams.
+- Every query is scoped by workspace authorization.
+- User files are never used for AI/ML training.
 
-See [security.md](./security.md) for full details.
+See [security.md](./security.md) for the broader security model.
 
 ---
 
 ## Deployment
 
 ### Azure Services
-- **Azure Container Apps** or **App Service** — Web API
-- **Azure Functions** — Background workers
-- **Azure Cosmos DB** — Primary database
-- **Azure Blob Storage** — File storage
-- **Azure Active Directory** — Authentication
-- **Azure Logic Apps** or **SendGrid** — Notifications
+
+- Azure Container Apps or App Service for the Web API.
+- Azure Static Web Apps or equivalent static hosting for the React SPA.
+- Azure Functions for background workers.
+- Azure Cosmos DB for primary data.
+- Azure Blob Storage for file storage.
+- Azure AD B2C or equivalent OAuth provider for authentication.
+- SendGrid or Azure Communication Services for invites/notifications.
 
 ### CI/CD
-- GitHub Actions for build/deploy
-- Infrastructure as Code (Bicep/ARM)
 
----
-
-## Environment Matrix
-
-| Feature | Bambu (P1S, X1C, etc.) | Klipper (Centauri, Vyper, etc.) |
-|---------|------------------------|--------------------------------|
-| Cloud-native | ✅ Bambu Connect API | ❌ Requires local bridge |
-| Zero local setup | ✅ | ❌ |
-| OctoAnywhere bridge | N/A | ✅ Instructions provided |
-| Full feature support | ✅ | ✅ (via bridge) |
-| Future: custom firmware | N/A | Possible |
+- GitHub Actions for build, test, and deployment.
+- Infrastructure as Code through Bicep/ARM/Terraform when infra is introduced.
 
 ---
 
 ## Roadmap
 
-### Phase 1 — MVP
-- [ ] Etsy OAuth + listing import
-- [ ] Product/part management
-- [ ] STL/3MF upload + versioning
-- [ ] Bambu Connect integration
-- [ ] Basic print queue
+### Phase 1 - Shared Etsy File Workspace
 
-### Phase 2 — Inventory
-- [ ] Inventory tracking
-- [ ] Cost per print calculation
-- [ ] Low stock alerts
-- [ ] Etsy sales sync
+- [ ] OAuth sign-in.
+- [ ] Shared workspace/project with owner and contributor roles.
+- [ ] Etsy OAuth plus listing/order import.
+- [ ] Product and part management.
+- [ ] STL/3MF upload and versioning.
+- [ ] Order preparation bundle generation.
+- [ ] Download files and manifest for manual printing.
 
-### Phase 3 — Intelligence
-- [ ] Sales velocity tracking
-- [ ] Reorder recommendations
-- [ ] Batch print optimization
-- [ ] Seasonal trend insights
+### Phase 2 - Inventory
 
-### Phase 4 — Scale
-- [ ] Personalized order handling
-- [ ] Multi-printer queue management
-- [ ] SOC 2 compliance
-- [ ] White-label options
+- [ ] Inventory tracking.
+- [ ] Cost per print calculation.
+- [ ] Low stock alerts.
+- [ ] Etsy sales sync refinement.
+
+### Phase 3 - Printer Execution
+
+- [ ] Printer adapter contract.
+- [ ] Bambu Connect integration.
+- [ ] OctoEverywhere bridge.
+- [ ] Basic print queue submission.
+- [ ] Live job state.
+
+### Phase 4 - Intelligence
+
+- [ ] Sales velocity tracking.
+- [ ] Reorder recommendations.
+- [ ] Batch print optimization.
+- [ ] Seasonal trend insights.

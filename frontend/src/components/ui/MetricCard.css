@@ -1,0 +1,60 @@
+.ph-metric-card {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  background: var(--porcelain);
+  padding: var(--space-5);
+  box-shadow: var(--shadow-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  transition: box-shadow var(--transition-base);
+}
+
+.ph-metric-card:hover {
+  box-shadow: var(--shadow-md);
+}
+
+.ph-metric-card__top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.ph-metric-card__label {
+  font-size: var(--text-xs);
+  font-weight: var(--font-medium);
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.ph-metric-card__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-md);
+  background: var(--linen);
+  color: var(--teal);
+}
+
+.ph-metric-card__value {
+  font-size: var(--text-2xl);
+  font-weight: var(--font-extrabold);
+  color: var(--ink);
+  line-height: var(--leading-tight);
+}
+
+.ph-metric-card__change {
+  font-size: var(--text-xs);
+  font-weight: var(--font-semibold);
+}
+
+.ph-metric-card__change--up {
+  color: var(--status-online);
+}
+
+.ph-metric-card__change--down {
+  color: var(--status-error);
+}

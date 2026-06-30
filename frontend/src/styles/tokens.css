@@ -1,0 +1,116 @@
+/*
+ * PrintHub Design Tokens
+ * Light operations theme: graphite text, cool mist canvas, porcelain panels,
+ * teal controls, filament coral alerts, and subtle build-plate grid cues.
+ */
+
+:root {
+  --color-graphite-900: #111827;
+  --color-graphite-800: #1f2937;
+  --color-graphite-700: #374151;
+  --color-graphite-600: #4b5563;
+  --color-graphite-500: #6b7280;
+  --color-graphite-400: #9ca3af;
+  --color-graphite-300: #d1d5db;
+  --color-graphite-100: #f3f4f6;
+
+  --color-teal-700: #0f766e;
+  --color-teal-600: #0d9488;
+  --color-teal-500: #14b8a6;
+  --color-teal-400: #2dd4bf;
+  --color-teal-300: #5eead4;
+  --color-teal-200: #99f6e4;
+  --color-teal-100: #ccfbf1;
+
+  --color-coral-700: #c2410c;
+  --color-coral-600: #ea580c;
+  --color-coral-500: #f97316;
+  --color-coral-400: #fb923c;
+  --color-coral-300: #fdba74;
+  --color-coral-200: #fed7aa;
+  --color-coral-100: #ffedd5;
+
+  --ink: var(--color-graphite-900);
+  --charcoal: #26272b;
+  --graphite: #3a3a3c;
+  --graphite-light: #52525b;
+  --muted: var(--color-graphite-500);
+  --canvas: #f5f7fa;
+  --porcelain: #ffffff;
+  --linen: #eef2f7;
+  --line: #d5dbe4;
+  --line-strong: #b8c2d0;
+
+  --teal: var(--color-teal-600);
+  --teal-soft: var(--color-teal-500);
+  --teal-deep: var(--color-teal-700);
+  --filament-coral: var(--color-coral-600);
+  --filament-coral-deep: var(--color-coral-700);
+  --amber: #d97706;
+
+  --status-online: #059669;
+  --status-busy: #d97706;
+  --status-offline: #6b7280;
+  --status-error: #dc2626;
+  --status-paused: #ea580c;
+  --status-draft: #64748b;
+
+  --grid-line: rgba(15, 23, 42, 0.055);
+  --grid-line-strong: rgba(15, 23, 42, 0.1);
+  --grid-accent: rgba(13, 148, 136, 0.12);
+
+  --font-sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-mono: "SF Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+
+  --text-xs: 0.75rem;
+  --text-sm: 0.875rem;
+  --text-base: 1rem;
+  --text-lg: 1.125rem;
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 1.875rem;
+  --text-4xl: 2.25rem;
+
+  --font-normal: 400;
+  --font-medium: 500;
+  --font-semibold: 600;
+  --font-bold: 700;
+  --font-extrabold: 800;
+
+  --leading-tight: 1.25;
+  --leading-snug: 1.375;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.625;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.25rem;
+  --space-6: 1.5rem;
+  --space-8: 2rem;
+  --space-10: 2.5rem;
+  --space-12: 3rem;
+  --space-16: 4rem;
+  --space-20: 5rem;
+
+  --sidebar-width: 240px;
+  --sidebar-collapsed: 64px;
+  --topbar-height: 56px;
+  --bottom-nav-height: 64px;
+
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 14px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.06);
+  --shadow-md: 0 8px 20px rgba(15, 23, 42, 0.08);
+  --shadow-lg: 0 18px 44px rgba(15, 23, 42, 0.12);
+  --shadow-glow: 0 0 0 4px rgba(13, 148, 136, 0.14);
+
+  --transition-fast: 120ms ease;
+  --transition-base: 200ms ease;
+  --transition-slow: 300ms ease;
+}

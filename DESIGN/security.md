@@ -2,7 +2,9 @@
 
 ## Overview
 
-PrintHub handles highly sensitive intellectual property: users' STL/3MF files represent unique designs, custom characters, and proprietary products. Security is not an afterthought—it is a core product requirement.
+PrintHub handles sensitive intellectual property: users' STL/3MF files, product designs, custom text, and Etsy order data. Security is a core product requirement.
+
+Phase 1 security is workspace-scoped. A user can access data only through an active workspace membership.
 
 ---
 
@@ -10,11 +12,74 @@ PrintHub handles highly sensitive intellectual property: users' STL/3MF files re
 
 | Threat | Impact | Mitigation |
 |--------|--------|------------|
-| STL files stolen/downloaded by unauthorized parties | IP theft, competitive harm | Signed URLs, no direct file access |
-| Malicious file upload | Virus/malware via sliced files | File validation, sandboxed processing |
-| Etsy account compromise | Unauthorized access to shop data | OAuth best practices, token encryption |
-| Data breach | User data exposure | Encryption at rest, minimal data retention |
-| AI training on user files | IP lost to competitors | Explicit no-AI-training policy, legal terms |
+| Source files stolen by unauthorized parties | IP theft, competitive harm | Workspace auth, signed URLs, no public blob access |
+| Contributor overreach | Accidental or malicious shop changes | Role-based permissions and audit logs |
+| Malicious file upload | Malware or parser exploit | File allowlist, size limits, scanning, sandboxed processing |
+| Etsy token compromise | Unauthorized shop/order access | OAuth best practices, token encryption, revocation |
+| Data breach | User/order data exposure | Encryption at rest, least privilege, minimal secrets |
+| AI training on user files | Loss of user IP control | Explicit no-AI-training policy |
+
+---
+
+## Authentication
+
+- OAuth-only.
+- Azure AD B2C or equivalent provider.
+- No PrintHub password registration, password login, password reset, or password hash storage.
+- API receives and validates JWT bearer tokens.
+- User profile is bootstrapped on first valid sign-in.
+
+---
+
+## Authorization
+
+```text
+User
+  `-- WorkspaceMember
+        `-- Workspace
+              |-- Etsy Shop Connection
+              |-- Products
+              |-- Parts
+              |-- Files
+              |-- Orders
+              |-- Preparation Bundles
+              `-- Settings
+```
+
+Every protected API request must:
+
+1. Validate the bearer token.
+2. Resolve the current user.
+3. Confirm active membership in `workspaceId`.
+4. Check role permission for the requested action.
+
+### Roles
+
+| Role | Permissions |
+|------|-------------|
+| Owner | Manage workspace, Etsy connection, members, products, files, orders, bundles, and purge operations |
+| Contributor | Manage products, files, order preparation, and downloads |
+| Viewer | Read-only access if enabled |
+
+Contributor restrictions in Phase 1:
+
+- Cannot disconnect Etsy.
+- Cannot invite/remove members.
+- Cannot purge source files unless explicitly elevated later.
+- Cannot delete the workspace.
+
+---
+
+## Etsy Connection
+
+Requested scopes should be the minimum required for listing/order import and future status updates.
+
+Token storage:
+
+- Encrypt access and refresh tokens at rest.
+- Rotate refresh tokens when Etsy supports it.
+- Revoke or delete tokens on shop disconnect.
+- Log connection, refresh failure, and disconnect events.
 
 ---
 
@@ -22,200 +87,115 @@ PrintHub handles highly sensitive intellectual property: users' STL/3MF files re
 
 ### Upload Validation
 
-```csharp
-// Validate all uploaded files
-- Extension allowlist: .stl, .3mf, .obj, .amf
-- Magic bytes verification (not just extension)
-- Max file size: 100MB
-- Virus scan via Azure Defender or ClamAV
-- Parse and validate mesh geometry (detect corrupt/malicious files)
+```text
+- Extension allowlist: .stl and .3mf for Phase 1
+- Magic bytes or structured validation where practical
+- Max file size: 100MB initially
+- Virus scan through Azure Defender or equivalent
+- Store file hash for integrity and duplicate detection
 ```
 
 ### Storage
 
 | Layer | Protection |
 |-------|------------|
-| Azure Blob Storage | Encryption at rest (AES-256) |
-| Customer-managed keys | Optional BYOK for enterprise |
-| Private endpoints | VNet integration for Azure Storage |
-| No public blob URLs | Always use signed URLs |
+| Azure Blob Storage | Encryption at rest |
+| No public blob URLs | Files served by authenticated API stream or signed URL |
+| Private endpoints | Preferred for production storage access |
+| Thumbnails | Stored separately from source files |
 
-### Signed URLs
+### File Retention
 
-```csharp
-// Files served through time-limited SAS URLs
-- Expiry: 15 minutes for download
-- IP restriction where possible
-- Single-use tokens for extra sensitive operations
-- Thumbnail generation on upload, stored separately
-```
-
-### Auto-Purge Policy
-
-```
-STL/3MF files: Delete after 7 days (configurable)
-Pre-sliced files: Delete after print job completes
-Personalized files: Delete 24 hours after order fulfilled
-```
-
-Users can opt into longer retention (up to 30 days) for a fee.
-
----
-
-## Authentication & Authorization
-
-### User Authentication
-
-- **Azure Active Directory B2C** for identity
-- Social login: Google, Apple (Etsy sellers use varied auth)
-- MFA required for shops with >$1000/mo revenue
-
-### Shop Connection (Etsy OAuth)
-
-```
-Scopes requested:
-- listings_rw (read/write listings)
-- transactions (read orders)
-- profile (basic shop info)
-
-Token storage:
-- Encrypted at rest
-- Refresh tokens rotated automatically
-- Revocation on user request
-```
-
-### Authorization
-
-```
-User
-  └── Shop (owning)
-        ├── Products (CRUD on own shop only)
-        ├── Parts
-        ├── PrintJobs
-        └── Settings
-
-No cross-shop access. User A cannot see User B's data.
-```
+- Source STL/3MF files are retained by default.
+- Users can soft delete files.
+- Owners can purge files after an explicit confirmation flow.
+- Generated bundle archives are short-lived by default.
+- Personalized generated files should be deleted after fulfillment unless the user opts into retention.
 
 ---
 
 ## Data Protection
 
-### Encryption
-
 | Data | At Rest | In Transit |
 |------|---------|------------|
-| Files (STL/3MF) | AES-256 (Azure Storage) | TLS 1.3 |
-| Database | AES-256 (Cosmos DB) | TLS 1.3 |
-| Tokens | AES-256 + hash for refresh | TLS 1.3 |
-| User PII | AES-256 | TLS 1.3 |
+| Source files | Azure Storage encryption | TLS |
+| Database records | Cosmos DB encryption | TLS |
+| Etsy tokens | Application encryption plus platform encryption | TLS |
+| User/order PII | Platform encryption | TLS |
 
-### Token Management
+---
 
-```csharp
-// Etsy tokens stored encrypted
-public class EncryptedToken
-{
-    public string EncryptedValue { get; set; }  // AES encrypted
-    public string IV { get; set; }              // Initialization vector
-    public string Hash { get; set; }            // For validation without decrypt
-    public DateTime ExpiresAt { get; set; }
-}
+## Audit Logging
 
-// Never store raw tokens
-// Key rotation: automated, quarterly
-```
+Log sensitive operations:
 
-### Audit Logging
-
-Every sensitive operation logged:
 ```json
 {
-  "timestamp": "2024-01-15T10:30:00Z",
-  "userId": "user-123",
+  "timestamp": "2026-05-20T10:30:00Z",
+  "workspaceId": "wks_123",
+  "userId": "usr_123",
   "action": "FILE_DOWNLOAD",
-  "fileId": "file-456",
-  "ip": "203.0.113.42",
-  "userAgent": "Mozilla/5.0...",
+  "entityType": "PrintFileVersion",
+  "entityId": "ver_456",
   "success": true
 }
 ```
 
-Users can download their own audit logs.
+Audit events required for Phase 1:
+
+- Etsy connected/disconnected.
+- Member invited, accepted, role changed, removed.
+- File uploaded, current version changed, deleted, purged, downloaded.
+- Preparation bundle generated, downloaded, marked printed.
+- Permission-denied attempts for sensitive actions.
 
 ---
 
 ## Compute Security
 
-### Slicing/Processing
+Phase 1 may not need slicing or automated file modification. If generated personalization is introduced:
 
-- **Ephemeral containers** — files processed in isolated, stateless containers
-- Containers spun up per-job, destroyed after completion
-- No persistent storage access from processing containers
-- Network isolation: processing VMs cannot reach other services
-
-### Azure Configuration
-
-```bash
-# Recommended Azure security config
-- Enable Azure Defender for Storage
-- Enable Azure Defender for APIs
-- Use Private Endpoints for Cosmos DB and Storage
-- VNet integration for App Service/Container Apps
-- Web Application Firewall (WAF) in front of API
-- Rate limiting: 100 req/min per user
-```
+- Run processing in isolated workers or containers.
+- Avoid persistent local storage.
+- Delete temporary files after processing.
+- Do not let processing workers access unrelated workspace data.
 
 ---
 
-## Compliance & Privacy
-
-### Policy Commitments
+## Compliance And Privacy
 
 | Commitment | Description |
 |------------|-------------|
 | No AI Training | User files are never used to train AI/ML models |
 | No Data Sharing | User data is never sold or shared with third parties |
-| No Competitive Use | We don't use your designs for our own products |
+| No Competitive Use | PrintHub does not use customer designs for its own products |
 | Deletion on Request | Users can request full data deletion within 30 days |
 | Breach Notification | Users notified within 72 hours of confirmed breach |
-
-### Legal
-
-- **Terms of Service** — explicit IP ownership stays with user
-- **Privacy Policy** — GDPR, CCPA compliant
-- **Data Processing Agreement** — available for enterprise customers
-
-### Future: SOC 2 Type II
-
-Roadmap goal for Year 2:
-- Annual audit by third party
-- Continuous monitoring
-- Incident response procedures
-- Penetration testing
 
 ---
 
 ## Security Checklist
 
 ### Pre-Launch
-- [ ] Azure Defender enabled on all services
-- [ ] WAF configured with OWASP rules
-- [ ] All secrets in Azure Key Vault
-- [ ] TLS 1.3 enforced everywhere
-- [ ] File validation tested
-- [ ] Penetration test completed
-- [ ] Privacy policy and ToS reviewed by lawyer
+
+- [ ] All protected endpoints enforce workspace membership.
+- [ ] Role checks covered by unit/integration tests.
+- [ ] Etsy tokens encrypted at rest.
+- [ ] Blob containers are private.
+- [ ] File upload validation tested.
+- [ ] File download authorization tested.
+- [ ] Audit logging implemented for sensitive operations.
+- [ ] Privacy policy and terms reviewed before public launch.
 
 ### Operational
-- [ ] Quarterly key rotation
-- [ ] Monthly dependency audits (Dependabot)
-- [ ] Annual SOC 2 readiness assessment
-- [ ] Incident response plan documented
-- [ ] Backup restoration tested quarterly
+
+- [ ] Quarterly key rotation.
+- [ ] Dependency audits enabled.
+- [ ] Backup restoration tested.
+- [ ] Incident response plan documented.
 
 ---
 
 ## Reporting Security Issues
 
-security@printhub.example.com — responsible disclosure policy
+Use a private responsible-disclosure channel before public launch. Public contact details can be added once the product has a production domain.

@@ -1,62 +1,150 @@
 # Issue Execution Plan
 
 ## Goal
-Track the implementation order for PrintHub MVP and make it clear which issues can run in parallel versus which must wait for prior PRs to merge.
 
-## Dependencies
+Phase 1 is the shared Etsy file-preparation workspace:
+
+1. Sign in with OAuth.
+2. Create/select a workspace.
+3. Connect one Etsy shop.
+4. Invite a contributor.
+5. Import or create products.
+6. Attach versioned STL/3MF files to products/parts.
+7. Prepare each order into the right downloadable file bundle.
+8. Download the bundle and mark the work printed manually.
+
+Bambu, OctoEverywhere, direct print submission, live printer status, and automatic printer queues are later-phase work. They must not block Phase 1.
+
+## Issue Shape For OpenClaw/Ollama Agents
+
+Each issue should be self-contained and include:
+
+- Exact goal and non-goals.
+- Files or modules expected to change.
+- API/data contracts to follow.
+- UI states to implement, including loading, empty, error, and permission-denied states.
+- Happy-path and edge-case tests required.
+- Manual verification steps.
+- Dependency note: "Can start now" or "Wait for issue X PR to merge."
+
+Prefer smaller issues with explicit acceptance criteria over broad "build feature" issues.
+
+## Proposed Phase 1 Issues
 
 ```yaml
-dependencies:
-  5: [2]                    # Data layer depends on backend scaffold
-  6: [2]                    # Auth depends on backend scaffold
-  7: [5, 6]                 # Etsy sync depends on data + auth
-  8: [5]                    # Catalog depends on data layer
-  9: [8, 5]                 # Queue planner depends on catalog + data
-  10: [9]                   # Printer adapter depends on queue planner
-  11: [3]                   # Landing page depends on frontend scaffold
-  12: [3]                   # Dashboard depends on frontend scaffold
-  13: [3]                   # Catalog pages depend on frontend scaffold
-  14: [3]                   # Printers/settings depend on frontend scaffold
-  15: [2, 3]               # QA smoke tests depend on both scaffolds
-  16: [8, 5]               # Inventory depends on catalog + data
-  17: [6, 7, 8, 9]         # Personalized orders depends on auth + etsy + catalog + queue
-  18: [6, 8, 9, 10, 16, 17]  # Frontend integration depends on all backend domains
-  19: [2]                   # Infra depends on backend scaffold
+issues:
+  101:
+    title: Backend Phase 1 data model and workspace authorization
+    can_start: true
+    blocks: [102, 103, 104, 105, 106]
+  102:
+    title: OAuth-only auth integration and user profile bootstrap
+    can_start: true
+    blocks: [103, 104, 105, 106]
+  103:
+    title: Workspace members and contributor invite flow
+    wait_for: [101, 102]
+    blocks: [110]
+  104:
+    title: Etsy connection, listing sync, and order sync
+    wait_for: [101, 102]
+    blocks: [107, 108]
+  105:
+    title: File storage, upload, versioning, download, and purge controls
+    wait_for: [101, 102]
+    blocks: [107, 108]
+  106:
+    title: Frontend app shell aligned to Phase 1 navigation
+    can_start: true
+    blocks: [109, 110, 111, 112]
+  107:
+    title: Product, part, and file mapping API
+    wait_for: [101, 104, 105]
+    blocks: [108, 111]
+  108:
+    title: Order preparation bundle API and manifest generation
+    wait_for: [104, 105, 107]
+    blocks: [112]
+  109:
+    title: Public landing page and OAuth entry UI
+    wait_for: [106]
+  110:
+    title: Workspace settings UI for Etsy connection and contributors
+    wait_for: [103, 104, 106]
+  111:
+    title: Product and part file-management UI
+    wait_for: [106, 107]
+    blocks: [112]
+  112:
+    title: Orders and preparation bundle UI
+    wait_for: [106, 108, 111]
+    blocks: [113]
+  113:
+    title: Phase 1 end-to-end tests, accessibility pass, and manual UI verification
+    wait_for: [109, 110, 111, 112]
 ```
 
 ## Parallel Groups
 
 ```yaml
 groups:
-  foundation: [1, 2, 3, 4]           # Wave 0: start immediately in parallel
-  backend_data_auth: [5, 6]         # Wave 1: after backend scaffold merges
-  frontend_mock_pages: [11, 12, 13, 14]  # Wave 1: after frontend scaffold merges
-  qa_infra: [15, 19]                # Wave 1: after both scaffolds
-  backend_domain: [7, 8, 9, 16]     # Wave 2: after data/auth ready
-  printer_orders: [10, 17]          # Wave 3: after catalog/queue ready
-  integration: [18]                 # Wave 4: after all backend domains
+  wave_0_can_start_now:
+    - 101 # data model/workspace authorization
+    - 102 # OAuth profile bootstrap
+    - 106 # frontend shell/navigation
+
+  wave_1_after_foundations:
+    - 103 # contributors
+    - 104 # Etsy sync
+    - 105 # file storage/versioning
+    - 109 # landing/OAuth entry UI
+
+  wave_2_domain_work:
+    - 107 # product/part/file mapping API
+    - 110 # settings UI for Etsy and contributors
+
+  wave_3_order_preparation:
+    - 108 # bundle API/manifest generation
+    - 111 # product/part file UI
+
+  wave_4_integration_and_quality:
+    - 112 # orders/bundle UI
+    - 113 # E2E, accessibility, manual verification
 ```
 
-## External PRs
+## Hard Waits
 
-```yaml
-external_prs:
-  {}   # No external PRs blocking this execution plan
-```
+- Product/part/file mapping API waits for data model, Etsy sync contracts, and file storage.
+- Order bundle generation waits for product mappings and file versioning.
+- Orders UI waits for the bundle API and product/file UI contracts.
+- End-to-end testing waits for all user-facing Phase 1 flows to exist.
 
-## Constraints
+## Can Run In Parallel
 
-```yaml
-max_parallel: 6
-review_after_each: false
-auto_merge: false
-```
+- OAuth profile bootstrap and workspace data model can run together if they agree on user id and authorization contracts.
+- Frontend shell/navigation can run while backend foundations are being built, using mocks.
+- Etsy sync and file storage can run in parallel after workspace authorization exists.
+- Contributor settings UI can run in parallel with product/file UI after the app shell exists.
 
-## Notes
+## Manual Verification Gate
 
-- Issue #1 (design lock) is source-of-truth work. Implementation PRs must not contradict its decisions.
-- Issue #4 (Bambu spike) is independent and gates printer adapter scope (#10).
-- Issue #15 (QA) starts small after scaffolds and expands as routes stabilize.
-- Issue #19 (infra) starts with skeleton after backend scaffold and validates after deployment.
-- Wave ordering ensures backend API contracts exist before frontend integration (#18) begins.
-- Dependencies within a group are still respected (e.g., #9 waits for #8 even though both are in backend_domain group).
+Every implementation PR should include manual verification notes. For UI PRs, verify at minimum:
+
+- Desktop width around 1440px.
+- Tablet width around 768px.
+- Mobile width around 390px.
+- No horizontal overflow.
+- Keyboard navigation reaches every primary control.
+- Empty, loading, error, and permission-denied states are visible and styled.
+- Light theme remains the default.
+
+## Later-Phase Issue Bucket
+
+Keep these out of Phase 1 unless the user explicitly re-scopes:
+
+- Bambu/OctoEverywhere printer adapters.
+- Direct cloud print submission.
+- Live printer telemetry.
+- Automatic slicing or build-plate packing.
+- Inventory forecasting and reorder intelligence.
+- Billing and multi-shop subscriptions.

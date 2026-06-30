@@ -1,0 +1,24 @@
+# .NET build outputs
+bin/
+obj/
+
+# IDE
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Test results
+TestResults/
+*.trx
+frontend/test-results/
+frontend/playwright-report/
+infra/main.json
+
+# NuGet
+packages/
+*.nupkg
+
+# OS
+.DS_Store
+Thumbs.db

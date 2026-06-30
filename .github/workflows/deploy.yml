@@ -1,0 +1,193 @@
+name: Deploy to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: Azure environment name
+        required: true
+        default: prod
+        type: choice
+        options:
+          - prod
+          - test
+          - dev
+  push:
+    branches: [ main ]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  APP_NAME: printhub
+  AZURE_LOCATION: eastus2
+  DEPLOY_ENVIRONMENT: ${{ inputs.environment || 'prod' }}
+
+jobs:
+  deploy:
+    name: Build, test, and deploy
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment || 'prod' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '9.0.x'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24.x'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Restore .NET
+        run: dotnet restore PrintHub.sln
+
+      - name: Build .NET
+        run: dotnet build PrintHub.sln --no-restore --configuration Release
+
+      - name: Test .NET
+        run: dotnet test PrintHub.sln --no-build --configuration Release --verbosity normal
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Test frontend
+        working-directory: frontend
+        run: npm test
+
+      - name: Build frontend without deployment API
+        working-directory: frontend
+        run: npm run build
+
+      - name: Install Playwright browser
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
+      - name: Run Playwright UI workflow
+        working-directory: frontend
+        run: npm run test:e2e
+
+      - uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Register Azure resource providers
+        run: |
+          az provider register --namespace Microsoft.App --wait
+          az provider register --namespace Microsoft.ContainerRegistry --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
+
+      - name: Validate Bicep
+        run: az bicep build --file infra/main.bicep
+
+      - name: Deploy base infrastructure
+        id: infra
+        run: |
+          az deployment sub create \
+            --name "printhub-${DEPLOY_ENVIRONMENT}-${GITHUB_RUN_NUMBER}" \
+            --location "${AZURE_LOCATION}" \
+            --template-file infra/main.bicep \
+            --parameters \
+              appName="${APP_NAME}" \
+              environment="${DEPLOY_ENVIRONMENT}" \
+              location="${AZURE_LOCATION}" \
+              etsyClientId="${{ secrets.ETSY_CLIENT_ID }}" \
+              etsyClientSecret="${{ secrets.ETSY_CLIENT_SECRET }}" \
+              etsyStateSigningSecret="${{ secrets.ETSY_STATE_SIGNING_SECRET }}" \
+            --query properties.outputs \
+            --output json > deployment-outputs.json
+
+          echo "resource_group=$(jq -r '.resourceGroupName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "api_app=$(jq -r '.apiContainerAppName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "api_fqdn=$(jq -r '.apiFqdn.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "acr_name=$(jq -r '.acrName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "acr_login_server=$(jq -r '.acrLoginServer.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+          echo "frontend_storage=$(jq -r '.frontendStorageAccountName.value' deployment-outputs.json)" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push API image
+        run: |
+          az acr build \
+            --registry "${{ steps.infra.outputs.acr_name }}" \
+            --image "printhub-api:${GITHUB_SHA}" \
+            --file src/PrintHub.Api/Dockerfile \
+            .
+
+      - name: Update API container app
+        run: |
+          az containerapp update \
+            --name "${{ steps.infra.outputs.api_app }}" \
+            --resource-group "${{ steps.infra.outputs.resource_group }}" \
+            --image "${{ steps.infra.outputs.acr_login_server }}/printhub-api:${GITHUB_SHA}" \
+            --set-env-vars \
+              PublicApiBaseUrl="https://${{ steps.infra.outputs.api_fqdn }}"
+
+      - name: Enable static website hosting
+        id: frontend
+        run: |
+          STORAGE_KEY=$(az storage account keys list \
+            --resource-group "${{ steps.infra.outputs.resource_group }}" \
+            --account-name "${{ steps.infra.outputs.frontend_storage }}" \
+            --query "[0].value" \
+            --output tsv)
+
+          az storage blob service-properties update \
+            --account-name "${{ steps.infra.outputs.frontend_storage }}" \
+            --account-key "$STORAGE_KEY" \
+            --static-website \
+            --index-document index.html \
+            --404-document index.html
+
+          FRONTEND_ENDPOINT=$(az storage account show \
+            --resource-group "${{ steps.infra.outputs.resource_group }}" \
+            --name "${{ steps.infra.outputs.frontend_storage }}" \
+            --query "primaryEndpoints.web" \
+            --output tsv)
+
+          echo "storage_key=$STORAGE_KEY" >> "$GITHUB_OUTPUT"
+          echo "frontend_endpoint=${FRONTEND_ENDPOINT%/}" >> "$GITHUB_OUTPUT"
+
+      - name: Update API CORS
+        run: |
+          az containerapp update \
+            --name "${{ steps.infra.outputs.api_app }}" \
+            --resource-group "${{ steps.infra.outputs.resource_group }}" \
+            --set-env-vars \
+              Cors__AllowedOrigins__0="${{ steps.frontend.outputs.frontend_endpoint }}"
+
+      - name: Build frontend for Azure API
+        working-directory: frontend
+        run: npm run build
+        env:
+          VITE_API_BASE_URL: https://${{ steps.infra.outputs.api_fqdn }}
+
+      - name: Publish frontend static files
+        run: |
+          az storage blob upload-batch \
+            --account-name "${{ steps.infra.outputs.frontend_storage }}" \
+            --account-key "${{ steps.frontend.outputs.storage_key }}" \
+            --destination '$web' \
+            --source frontend/dist \
+            --overwrite
+
+      - name: Smoke test deployed API and frontend
+        run: |
+          curl --fail --silent --show-error "https://${{ steps.infra.outputs.api_fqdn }}/health"
+          curl --fail --silent --show-error "${{ steps.frontend.outputs.frontend_endpoint }}/" > /tmp/printhub-index.html
+          grep -q "PrintHub" /tmp/printhub-index.html
+
+      - name: Deployment summary
+        run: |
+          {
+            echo "## PrintHub deployed"
+            echo ""
+            echo "- Frontend: ${{ steps.frontend.outputs.frontend_endpoint }}"
+            echo "- API: https://${{ steps.infra.outputs.api_fqdn }}"
+            echo "- Etsy callback URL: https://${{ steps.infra.outputs.api_fqdn }}/api/etsy/callback"
+          } >> "$GITHUB_STEP_SUMMARY"

@@ -1,0 +1,573 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PrintHub — 3D Print Operations</title>
+<style>
+  :root {
+    --color-graphite-900: #0F1419;
+    --color-graphite-800: #1A2332;
+    --color-graphite-700: #2A3A4F;
+    --color-graphite-600: #3E5675;
+    --color-graphite-500: #5A7A9C;
+    --color-graphite-400: #8BA3BD;
+    --color-graphite-300: #B8C9D9;
+    --color-graphite-100: #E8EDF2;
+    --color-teal-600: #0D7377;
+    --color-teal-500: #14A085;
+    --color-teal-400: #2DD4A8;
+    --color-teal-300: #6EE7B7;
+    --color-teal-200: #A7F3D0;
+    --color-teal-100: #D1FAE5;
+    --color-coral-600: #C2410C;
+    --color-coral-500: #EA580C;
+    --color-coral-400: #F97316;
+    --color-coral-300: #FB923C;
+    --color-coral-200: #FDBA74;
+    --color-coral-100: #FFEDD5;
+    --font-sans: Inter, system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+    --font-mono: JetBrains Mono, ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: var(--font-sans);
+    background: var(--color-graphite-900);
+    color: var(--color-graphite-300);
+    line-height: 1.5;
+  }
+  a { color: var(--color-teal-500); text-decoration: none; }
+  a:hover { color: var(--color-teal-400); }
+  .container { max-width: 1280px; margin: 0 auto; padding: 0 1.5rem; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: .4rem;
+    border: none; cursor: pointer; font-weight: 500; font-size: .875rem; line-height: 1;
+    padding: .5rem 1rem; border-radius: .5rem; transition: background .15s, transform .1s;
+    text-decoration: none;
+  }
+  .btn-primary { background: var(--color-teal-600); color: #fff; }
+  .btn-primary:hover { background: var(--color-teal-500); }
+  .btn-secondary { background: var(--color-graphite-800); color: var(--color-graphite-300); border: 1px solid var(--color-graphite-700); }
+  .btn-secondary:hover { background: var(--color-graphite-700); }
+  .btn-danger { background: var(--color-coral-600); color: #fff; }
+  .btn-sm { padding: .35rem .75rem; font-size: .8rem; }
+  .card {
+    background: var(--color-graphite-800);
+    border: 1px solid var(--color-graphite-700);
+    border-radius: .75rem;
+    padding: 1.25rem;
+  }
+  .card-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding-bottom: .75rem; margin-bottom: .75rem;
+    border-bottom: 1px solid var(--color-graphite-700);
+  }
+  .card-title { font-weight: 600; font-size: 1.125rem; color: var(--color-graphite-300); margin: 0; }
+  .surface-grid {
+    background-image:
+      linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px);
+    background-size: 2rem 2rem;
+  }
+  .badge {
+    display: inline-flex; align-items: center; gap: .25rem;
+    border-radius: 9999px; padding: .15rem .6rem; font-size: .75rem; font-weight: 500;
+  }
+  .badge-draft { background: var(--color-graphite-700); color: var(--color-graphite-300); }
+  .badge-pending { background: rgba(13,115,119,0.25); color: var(--color-teal-300); }
+  .badge-queued { background: rgba(20,160,133,0.25); color: var(--color-teal-200); }
+  .badge-inprogress { background: rgba(45,212,168,0.2); color: var(--color-teal-300); }
+  .badge-paused { background: rgba(234,88,12,0.25); color: var(--color-coral-300); }
+  .badge-completed { background: rgba(45,212,168,0.15); color: var(--color-teal-400); }
+  .badge-failed { background: rgba(194,65,12,0.25); color: var(--color-coral-400); }
+  .badge-cancelled { background: rgba(42,58,79,0.5); color: var(--color-graphite-500); }
+  .topnav {
+    background: rgba(15,20,25,0.85); backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--color-graphite-700);
+    position: sticky; top: 0; z-index: 50;
+  }
+  .topnav-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+  .topnav-brand { font-weight: 700; font-size: 1.125rem; color: var(--color-graphite-100); letter-spacing: -0.02em; }
+  .topnav-links { display: flex; gap: 1.25rem; list-style: none; margin: 0; padding: 0; }
+  .topnav-links a { color: var(--color-graphite-400); font-size: .875rem; font-weight: 500; }
+  .topnav-links a:hover, .topnav-links a.active { color: var(--color-teal-400); }
+  .topnav-meta { display: flex; align-items: center; gap: .75rem; font-size: .875rem; color: var(--color-graphite-500); }
+  .hero {
+    text-align: center; padding: 6rem 1.5rem 5rem;
+  }
+  .hero h1 {
+    font-size: 2.5rem; font-weight: 700; color: var(--color-graphite-100); margin: 0 0 1rem; line-height: 1.15;
+  }
+  .hero p { font-size: 1.125rem; color: var(--color-graphite-400); max-width: 560px; margin: 0 auto 2rem; }
+  .features {
+    display: grid; gap: 1.25rem; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); padding-bottom: 4rem;
+  }
+  .feature-card { padding: 1.5rem; }
+  .feature-card h3 { margin: .5rem 0 .25rem; font-size: 1rem; font-weight: 600; color: var(--color-graphite-300); }
+  .feature-card p { margin: 0; font-size: .875rem; color: var(--color-graphite-500); line-height: 1.55; }
+  .icon { display: inline-flex; align-items: center; justify-content: center; width: 2.5rem; height: 2.5rem; border-radius: .5rem; }
+  .icon-teal { background: rgba(20,160,133,0.15); color: var(--color-teal-400); }
+  .icon-coral { background: rgba(249,115,22,0.15); color: var(--color-coral-400); }
+  .metric-grid { display: grid; gap: 1rem; grid-template-columns: repeat(4, 1fr); }
+  .metric { padding: 1.25rem; }
+  .metric-value { font-size: 1.5rem; font-weight: 700; color: var(--color-graphite-100); margin-bottom: .25rem; }
+  .metric-label { font-size: .75rem; text-transform: uppercase; letter-spacing: .06em; color: var(--color-graphite-500); }
+  .metric-change { font-size: .75rem; font-weight: 600; margin-top: .35rem; }
+  .metric-change.up { color: var(--color-teal-400); }
+  .metric-change.down { color: var(--color-coral-400); }
+  .table { width: 100%; border-collapse: collapse; font-size: .875rem; }
+  .table thead th { text-align: left; padding: .75rem; font-size: .75rem; text-transform: uppercase; letter-spacing: .05em; color: var(--color-graphite-500); background: var(--color-graphite-800); border-bottom: 1px solid var(--color-graphite-700); }
+  .table tbody td { padding: .75rem; border-bottom: 1px solid var(--color-graphite-700); color: var(--color-graphite-400); }
+  .table tbody tr:hover td { background: rgba(42,58,79,0.35); }
+  .table a { color: var(--color-teal-400); font-weight: 500; }
+  .table .actions { display: flex; gap: .4rem; }
+  .alert {
+    display: flex; align-items: flex-start; gap: .75rem;
+    border: 1px solid var(--color-graphite-700); border-radius: .75rem; padding: 1rem 1.25rem; background: var(--color-graphite-800);
+  }
+  .alert-warn { border-color: var(--color-coral-600); background: rgba(194,65,12,0.1); }
+  .alert-tip { border-color: var(--color-teal-600); background: rgba(13,115,119,0.12); }
+  .form-group { margin-bottom: 1rem; }
+  .form-label { display: block; font-size: .8rem; font-weight: 500; color: var(--color-graphite-400); margin-bottom: .35rem; }
+  .form-input {
+    width: 100%; background: var(--color-graphite-900); border: 1px solid var(--color-graphite-700); border-radius: .5rem;
+    padding: .5rem .75rem; color: var(--color-graphite-300); font-size: .875rem; outline: none;
+  }
+  .form-input:focus { border-color: var(--color-teal-300); box-shadow: 0 0 0 1px var(--color-teal-300); }
+  .switch { display: inline-flex; align-items: center; gap: .6rem; cursor: pointer; }
+  .switch input { appearance: none; width: 2.2rem; height: 1.2rem; border-radius: 9999px; background: var(--color-graphite-700); position: relative; outline: none; cursor: pointer; transition: background .2s; }
+  .switch input::after { content: ''; position: absolute; top: .15rem; left: .15rem; width: .9rem; height: .9rem; border-radius: 50%; background: var(--color-graphite-300); transition: transform .2s; }
+  .switch input:checked { background: var(--color-teal-600); }
+  .switch input:checked::after { transform: translateX(1rem); background: #fff; }
+  .nav-pills { display: flex; gap: .5rem; flex-wrap: wrap; }
+  .nav-pill { padding: .35rem .85rem; border-radius: .5rem; font-size: .875rem; color: var(--color-graphite-400); background: transparent; border: none; cursor: pointer; }
+  .nav-pill:hover { background: var(--color-graphite-800); color: var(--color-graphite-300); }
+  .nav-pill.active { background: var(--color-teal-600); color: #fff; }
+  .progress-track { height: .4rem; background: var(--color-graphite-700); border-radius: 9999px; overflow: hidden; }
+  .progress-fill { height: 100%; background: var(--color-teal-500); border-radius: 9999px; }
+  .printer-silhouette { width: 48px; height: 48px; border-radius: .5rem; display: inline-flex; align-items: center; justify-content: center; background: var(--color-graphite-700); color: var(--color-graphite-300); font-size: .7rem; font-weight: 700; }
+  .thumbnail { width: 64px; height: 64px; border-radius: .5rem; background: var(--color-graphite-700); display: inline-flex; align-items: center; justify-content: center; color: var(--color-graphite-500); font-size: .7rem; }
+  .page { display: none; }
+  .page.active { display: block; }
+  footer { text-align: center; padding: 2rem 1rem; font-size: .8rem; color: var(--color-graphite-600); border-top: 1px solid var(--color-graphite-800); margin-top: 2rem; }
+  @media (max-width: 768px) {
+    .topnav-links { display: none; }
+    .metric-grid { grid-template-columns: repeat(2, 1fr); }
+    .hero h1 { font-size: 1.75rem; }
+  }
+</style>
+</head>
+<body>
+<nav class="topnav">
+  <div class="container topnav-inner">
+    <div class="topnav-brand" style="display:flex;align-items:center;gap:.5rem;">
+      <span style="display:inline-block;width:1.25rem;height:1.25rem;background:var(--color-teal-500);border-radius:.25rem;"></span>
+      PrintHub
+    </div>
+    <ul class="topnav-links">
+      <li><a href="#" onclick="go('home')">Home</a></li>
+      <li><a href="#dashboard" onclick="go('dashboard')">Dashboard</a></li>
+      <li><a href="#queue" onclick="go('queue')">Queue</a></li>
+      <li><a href="#products" onclick="go('products')">Products</a></li>
+      <li><a href="#printers" onclick="go('printers')">Printers</a></li>
+      <li><a href="#settings" onclick="go('settings')">Settings</a></li>
+    </ul>
+    <div class="topnav-meta">
+      <span style="width:1.5rem;height:1.5rem;border-radius:50%;background:var(--color-teal-600);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.65rem;font-weight:700;">JD</span>
+    </div>
+  </div>
+</nav>
+
+<!-- HOME / LANDING -->
+<div id="page-home" class="page active">
+  <div class="hero surface-grid">
+    <h1>Run your 3D print business from one place</h1>
+    <p>PrintHub connects your Etsy store to your printers. Manage products, queue prints, track inventory, and never miss a reorder.</p>
+    <div style="display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap;">
+      <a href="#dashboard" class="btn btn-primary" onclick="go('dashboard')">Open Dashboard</a>
+      <a href="#" class="btn btn-secondary" onclick="go('home')">Learn more</a>
+    </div>
+  </div>
+  <div class="container features">
+    <div class="card feature-card">
+      <div class="icon icon-teal">🛒</div>
+      <h3>Etsy Integration</h3>
+      <p>Import listings, sync orders, and track inventory against sales automatically.</p>
+    </div>
+    <div class="card feature-card">
+      <div class="icon icon-coral">📦</div>
+      <h3>Smart Print Queue</h3>
+      <p>Consolidate shared parts across products and batch print efficiently.</p>
+    </div>
+    <div class="card feature-card">
+      <div class="icon icon-teal">🖨️</div>
+      <h3>Multi-Printer Support</h3>
+      <p>Bambu cloud-native and OctoEverywhere bridge for any printer family.</p>
+    </div>
+    <div class="card feature-card">
+      <div class="icon icon-coral">📊</div>
+      <h3>Business Intelligence</h3>
+      <p>Cost per print, sales velocity, low-stock alerts, and reorder recommendations.</p>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="page-dashboard" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-graphite-100);margin:0 0 1rem;">Dashboard</h1>
+    <div class="metric-grid">
+      <div class="card metric">
+        <div class="metric-value">34</div>
+        <div class="metric-label">Products Sold</div>
+        <div class="metric-change up">↑ 12% vs last month</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-value">12</div>
+        <div class="metric-label">Print Jobs</div>
+        <div class="metric-change up">↑ 2 vs last month</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-value">$849.66</div>
+        <div class="metric-label">Revenue</div>
+        <div class="metric-change up">↑ 15% vs last month</div>
+      </div>
+      <div class="card metric">
+        <div class="metric-value">$18.40</div>
+        <div class="metric-label">Print Cost</div>
+        <div class="metric-change down">↓ 8% vs last month</div>
+      </div>
+    </div>
+
+    <div style="margin-top:1.25rem;" class="alert alert-warn">
+      <div style="font-size:1.25rem;line-height:1;">⚠️</div>
+      <div>
+        <div style="font-weight:600;color:var(--color-graphite-300);">3 products below reorder point</div>
+        <div style="font-size:.875rem;color:var(--color-graphite-500);">Cat Hook (2 left), Dino Hook (3 left), Bear Hook (1 left)</div>
+      </div>
+      <div style="margin-left:auto;"><a href="#queue" class="btn btn-sm btn-primary" onclick="go('queue')">Print 30 more</a></div>
+    </div>
+
+    <div style="margin-top:1.25rem;" class="alert alert-tip">
+      <div style="font-size:1.25rem;line-height:1;">💡</div>
+      <div>
+        <div style="font-weight:600;color:var(--color-graphite-300);">Seasonal insight</div>
+        <div style="font-size:.875rem;color:var(--color-graphite-500);">Heart products sell 3× better in February. Start building inventory in January for Valentine's Day.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:1.25rem;">
+      <div class="card-header">
+        <div class="card-title">Top Performers (Last 30 Days)</div>
+      </div>
+      <table class="table">
+        <thead><tr><th>Product</th><th>Sold</th><th>Revenue</th><th>Margin</th><th>Trend</th></tr></thead>
+        <tbody>
+          <tr><td>🐱 Cat Wall Hook</td><td>12</td><td>$299.76</td><td>$11.42</td><td style="color:var(--color-teal-400);font-weight:600;">📈 20%</td></tr>
+          <tr><td>🦕 Dino Wall Hook</td><td>8</td><td>$199.92</td><td>$10.12</td><td style="color:var(--color-coral-400);font-weight:600;">📉 5%</td></tr>
+          <tr><td>🐻 Bear Wall Hook</td><td>6</td><td>$149.94</td><td>$9.82</td><td style="color:var(--color-graphite-500);">➡️ flat</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- QUEUE -->
+<div id="page-queue" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem;">
+      <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-graphite-100);margin:0;">Print Queue</h1>
+      <div style="display:flex;gap:.5rem;">
+        <button class="btn btn-primary">📦 Add to Queue</button>
+        <button class="btn btn-secondary">🔄 Sync Etsy</button>
+      </div>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header"><div class="card-title">Queue Items</div></div>
+      <table class="table">
+        <thead><tr><th>Product</th><th>Qty</th><th>Parts Breakdown</th><th>Est. Time</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><a href="#product-detail" onclick="go('product-detail')">🦕 Dino Wall Hook</a></td>
+            <td>5</td><td>Hook×5, Dino×5</td><td>~2h 30m</td>
+            <td><span class="badge badge-pending">Pending</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">+</button><button class="btn btn-sm btn-secondary">−</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+          <tr>
+            <td><a href="#product-detail" onclick="go('product-detail')">🐱 Cat Wall Hook</a></td>
+            <td>3</td><td>Hook×3, Cat×3</td><td>~1h 30m</td>
+            <td><span class="badge badge-pending">Pending</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">+</button><button class="btn btn-sm btn-secondary">−</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+          <tr>
+            <td><a href="#product-detail" onclick="go('product-detail')">🐻 Bear Wall Hook</a></td>
+            <td>2</td><td>Hook×2, Bear×2</td><td>~1h 00m</td>
+            <td><span class="badge badge-pending">Pending</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">+</button><button class="btn btn-sm btn-secondary">−</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="card" style="margin-bottom:1rem;">
+      <div class="card-header"><div class="card-title">Consolidated View</div></div>
+      <table class="table">
+        <thead><tr><th>Part</th><th>To Print</th><th>On Hand</th><th>Net After</th><th>Status</th></tr></thead>
+        <tbody>
+          <tr><td>Basic Wall Hook</td><td>10</td><td>12</td><td style="color:var(--color-teal-400);">+2 ▲</td><td><span class="badge badge-completed">Ready</span></td></tr>
+          <tr><td>Dino Character</td><td>5</td><td>0</td><td style="color:var(--color-coral-400);">−5 ⚠️</td><td><span class="badge badge-failed">Low</span></td></tr>
+          <tr><td>Cat Character</td><td>3</td><td>2</td><td style="color:var(--color-coral-400);">−1 ⚠️</td><td><span class="badge badge-failed">Low</span></td></tr>
+          <tr><td>Bear Character</td><td>2</td><td>4</td><td style="color:var(--color-teal-400);">+2 ▲</td><td><span class="badge badge-completed">Ready</span></td></tr>
+        </tbody>
+      </table>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding-top:.75rem;border-top:1px solid var(--color-graphite-700);">
+        <div style="font-size:.875rem;color:var(--color-graphite-500);">
+          Total time: <strong style="color:var(--color-graphite-300);">5h 00m</strong> · Filament: <strong style="color:var(--color-graphite-300);">~180g ($2.70)</strong>
+        </div>
+        <button class="btn btn-primary">▶ Print All</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCTS -->
+<div id="page-products" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem;">
+      <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-graphite-100);margin:0;">Products</h1>
+      <div style="display:flex;gap:.5rem;">
+        <input class="form-input" style="width:220px;" placeholder="🔍 Search products..." />
+        <button class="btn btn-primary">+ Add Product</button>
+      </div>
+    </div>
+    <div class="card">
+      <table class="table">
+        <thead><tr><th>Product</th><th>Price</th><th>Sold</th><th>In Stock</th><th>Status</th><th></th></tr></thead>
+        <tbody>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:.75rem;"><span class="thumbnail">3D</span><a href="#product-detail" onclick="go('product-detail')">🦕 Dino Wall Hook</a></div></td>
+            <td>$24.99</td><td>47</td><td>3 <span style="color:var(--color-coral-400);">⚠️</span></td>
+            <td><span class="badge badge-completed">On Etsy</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">Queue</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:.75rem;"><span class="thumbnail">3D</span><a href="#product-detail" onclick="go('product-detail')">🐱 Cat Wall Hook</a></div></td>
+            <td>$24.99</td><td>28</td><td>2 <span style="color:var(--color-coral-400);">⚠️</span></td>
+            <td><span class="badge badge-completed">On Etsy</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">Queue</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:.75rem;"><span class="thumbnail">3D</span><a href="#product-detail" onclick="go('product-detail')">🐻 Bear Wall Hook</a></div></td>
+            <td>$24.99</td><td>8</td><td>4</td>
+            <td><span class="badge badge-completed">On Etsy</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">Queue</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+          <tr>
+            <td><div style="display:flex;align-items:center;gap:.75rem;"><span class="thumbnail">3D</span><a href="#product-detail" onclick="go('product-detail')">⭐ Custom Keychain</a></div></td>
+            <td>—</td><td>0</td><td>0</td>
+            <td><span class="badge badge-draft">Not Listed</span></td>
+            <td><div class="actions"><button class="btn btn-sm btn-secondary">Queue</button><button class="btn btn-sm btn-secondary">⋯</button></div></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- PRODUCT DETAIL -->
+<div id="page-product-detail" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <div style="margin-bottom:1rem;">
+      <a href="#products" onclick="go('products')" style="font-size:.875rem;color:var(--color-graphite-500);">← Back to Products</a>
+    </div>
+    <div style="display:flex;gap:1.25rem;flex-wrap:wrap;align-items:flex-start;">
+      <div class="card" style="flex:1 1 320px;min-width:280px;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:.75rem;">
+          <h1 style="font-size:1.25rem;font-weight:700;color:var(--color-graphite-100);margin:0;">🦕 Dino Wall Hook</h1>
+          <button class="btn btn-secondary btn-sm">Edit</button>
+        </div>
+        <div style="display:flex;gap:1.25rem;flex-wrap:wrap;">
+          <div style="flex:1 1 180px;min-height:140px;background:var(--color-graphite-700);border-radius:.5rem;display:flex;align-items:center;justify-content:center;color:var(--color-graphite-500);font-size:.8rem;">
+            [3D Preview]
+          </div>
+          <div style="flex:2 1 260px;font-size:.875rem;color:var(--color-graphite-400);">
+            <div style="margin-bottom:.5rem;"><strong style="color:var(--color-graphite-300);">Etsy Listing #12345</strong></div>
+            <div>Price: <strong style="color:var(--color-graphite-300);">$24.99</strong></div>
+            <div>Sold: 47 · In Stock: <span style="color:var(--color-coral-400);">3 ⚠️</span></div>
+            <div>Last sold: 2 days ago</div>
+          </div>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--color-graphite-700);">
+          <div style="font-weight:600;font-size:.875rem;color:var(--color-graphite-300);margin-bottom:.5rem;">Parts in this Product</div>
+          <table class="table" style="font-size:.8rem;">
+            <thead><tr><th>Part</th><th>Version</th><th>Generic</th><th>Cost/Unit</th><th>On Hand</th></tr></thead>
+            <tbody>
+              <tr><td>Basic Wall Hook</td><td>v3</td><td>✅ Yes</td><td>$0.15</td><td>12</td></tr>
+              <tr><td>Dino Character</td><td>v1</td><td>❌ No</td><td>$0.30</td><td>0 <span style="color:var(--color-coral-400);">⚠️</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div style="margin-top:1rem;padding-top:1rem;border-top:1px solid var(--color-graphite-700);">
+          <div style="font-weight:600;font-size:.875rem;color:var(--color-graphite-300);margin-bottom:.5rem;">Inventory Settings</div>
+          <div style="display:flex;gap:1.5rem;flex-wrap:wrap;font-size:.875rem;color:var(--color-graphite-400);">
+            <div>Reorder Point: <strong style="color:var(--color-graphite-300);">6</strong></div>
+            <div>Reorder Qty: <strong style="color:var(--color-graphite-300);">10</strong></div>
+            <div>✓ Alert when low</div>
+          </div>
+        </div>
+      </div>
+      <div style="flex:1 1 260px;min-width:260px;">
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><div class="card-title" style="font-size:1rem;">Print History</div></div>
+          <table class="table" style="font-size:.8rem;">
+            <thead><tr><th>Date</th><th>Qty</th><th>Parts</th><th>Status</th></tr></thead>
+            <tbody>
+              <tr><td>Jan 12</td><td>5</td><td>Hook×5, Dino×5</td><td><span class="badge badge-completed">Completed</span></td></tr>
+              <tr><td>Jan 8</td><td>3</td><td>Hook×3, Dino×3</td><td><span class="badge badge-completed">Completed</span></td></tr>
+              <tr><td>Jan 3</td><td>5</td><td>Hook×5, Dino×5</td><td><span class="badge badge-completed">Completed</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title" style="font-size:1rem;">Files</div></div>
+          <div style="font-size:.875rem;color:var(--color-graphite-400);">
+            <div style="margin-bottom:.5rem;"><strong style="color:var(--color-graphite-300);">Basic Wall Hook</strong></div>
+            <div style="padding:.4rem .5rem;background:var(--color-graphite-900);border-radius:.4rem;margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between;">
+              <span>v3 (current) — Jan 10</span>
+              <span style="display:flex;gap:.35rem;"><button class="btn btn-sm btn-secondary">Preview</button><button class="btn btn-sm btn-secondary">Set</button></span>
+            </div>
+            <div style="padding:.4rem .5rem;border-radius:.4rem;margin-bottom:.35rem;display:flex;align-items:center;justify-content:space-between;">
+              <span>v2 — Dec 15</span>
+              <span style="display:flex;gap:.35rem;"><button class="btn btn-sm btn-secondary">Preview</button><button class="btn btn-sm btn-secondary">Set</button></span>
+            </div>
+            <div style="padding:.4rem .5rem;border-radius:.4rem;display:flex;align-items:center;justify-content:space-between;">
+              <span>v1 — Nov 20</span>
+              <span style="display:flex;gap:.35rem;"><button class="btn btn-sm btn-secondary">Preview</button><button class="btn btn-sm btn-secondary">Set</button></span>
+            </div>
+          </div>
+          <div style="margin-top:.75rem;"><button class="btn btn-secondary btn-sm">+ Add File Version</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- PRINTERS -->
+<div id="page-printers" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.75rem;">
+      <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-graphite-100);margin:0;">Printers</h1>
+      <button class="btn btn-primary">+ Add Printer</button>
+    </div>
+    <div style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));">
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+          <div class="printer-silhouette">B</div>
+          <div>
+            <div style="font-weight:600;color:var(--color-graphite-300);">P1S — Office</div>
+            <div style="font-size:.75rem;color:var(--color-graphite-500);">Bambu · P1S · 01P1234…ABC</div>
+          </div>
+          <div style="margin-left:auto;"><span class="badge badge-completed">Online</span></div>
+        </div>
+        <div style="font-size:.875rem;color:var(--color-graphite-500);margin-bottom:.5rem;">Current job: <a href="#queue" onclick="go('queue')">job_001</a></div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button class="btn btn-sm btn-secondary">Settings</button>
+          <button class="btn btn-sm btn-danger">Remove</button>
+        </div>
+      </div>
+      <div class="card">
+        <div style="display:flex;align-items:center;gap:.75rem;margin-bottom:.75rem;">
+          <div class="printer-silhouette">K</div>
+          <div>
+            <div style="font-weight:600;color:var(--color-graphite-300);">Centauri Carbon — Lab</div>
+            <div style="font-size:.75rem;color:var(--color-graphite-500);">Klipper · OctoEverywhere</div>
+          </div>
+          <div style="margin-left:auto;"><span class="badge badge-completed">Online</span></div>
+        </div>
+        <div style="font-size:.875rem;color:var(--color-graphite-500);margin-bottom:.5rem;">Current job: —</div>
+        <div style="display:flex;gap:.5rem;justify-content:flex-end;">
+          <button class="btn btn-sm btn-secondary">Settings</button>
+          <button class="btn btn-sm btn-danger">Remove</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- SETTINGS -->
+<div id="page-settings" class="page">
+  <div class="container" style="padding-top:1.5rem;">
+    <h1 style="font-size:1.5rem;font-weight:700;color:var(--color-graphite-100);margin:0 0 1rem;">Settings</h1>
+    <div style="display:flex;gap:1.5rem;flex-wrap:wrap;align-items:flex-start;">
+      <div style="flex:1 1 220px;min-width:200px;">
+        <div class="nav-pills" style="flex-direction:column;align-items:stretch;">
+          <button class="nav-pill active">General</button>
+          <button class="nav-pill">Shop Connections</button>
+          <button class="nav-pill">Notifications</button>
+          <button class="nav-pill">Billing</button>
+        </div>
+      </div>
+      <div style="flex:3 1 480px;min-width:300px;">
+        <div class="card" style="margin-bottom:1rem;">
+          <div class="card-header"><div class="card-title">General</div></div>
+          <div class="form-group">
+            <label class="form-label">Display Name</label>
+            <input class="form-input" value="Mike's 3D Prints" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email</label>
+            <input class="form-input" value="seller@example.com" />
+          </div>
+          <div class="form-group">
+            <label class="form-label">Timezone</label>
+            <select class="form-input"><option>America/Los_Angeles</option><option>America/New_York</option><option>UTC</option></select>
+          </div>
+          <div class="form-group">
+            <label class="switch"><input type="checkbox" checked> <span>Send low-stock email alerts</span></label>
+          </div>
+          <div style="display:flex;justify-content:flex-end;"><button class="btn btn-primary">Save</button></div>
+        </div>
+        <div class="card">
+          <div class="card-header"><div class="card-title">Shop Connections</div></div>
+          <div style="display:flex;align-items:center;justify-content:space-between;padding:.75rem 0;border-bottom:1px solid var(--color-graphite-700);">
+            <div style="display:flex;align-items:center;gap:.75rem;">
+              <span style="width:1.5rem;height:1.5rem;border-radius:.25rem;background:var(--color-coral-600);display:inline-flex;align-items:center;justify-content:center;color:#fff;font-size:.6rem;font-weight:700;">E</span>
+              <div>
+                <div style="font-weight:600;color:var(--color-graphite-300);">Etsy — Mikes3DPrints</div>
+                <div style="font-size:.75rem;color:var(--color-graphite-500);">Last sync: 2 hours ago</div>
+              </div>
+            </div>
+            <div style="display:flex;gap:.5rem;">
+              <button class="btn btn-sm btn-secondary">Sync Now</button>
+              <button class="btn btn-sm btn-danger">Disconnect</button>
+            </div>
+          </div>
+          <div style="padding-top:.75rem;"><button class="btn btn-secondary btn-sm">+ Connect Another Shop</button></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<footer>
+  PrintHub Prototype — Design lock reference. No backend required.
+</footer>
+
+<script>
+function go(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  const target = document.getElementById('page-' + page);
+  if (target) target.classList.add('active');
+  window.scrollTo(0,0);
+}
+function route() {
+  const hash = location.hash.replace('#','') || 'home';
+  go(hash);
+}
+window.addEventListener('hashchange', route);
+window.addEventListener('load', route);
+</script>
+</body>
+</html>
