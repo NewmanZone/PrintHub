@@ -25,7 +25,7 @@ public class EtsyApiService : IEtsyService
         _logger = logger;
     }
 
-    public Task<string> GetAuthorizationUrlAsync(string state, string redirectUri)
+    public Task<string> GetAuthorizationUrlAsync(string state, string redirectUri, string? codeChallenge = null)
     {
         var url = $"{_config.AuthorizationUrl}" +
             $"?response_type=code" +
@@ -34,24 +34,50 @@ public class EtsyApiService : IEtsyService
             $"&scope={Uri.EscapeDataString(_config.Scopes)}" +
             $"&state={state}";
         
+        if (!string.IsNullOrEmpty(codeChallenge))
+        {
+            url += $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
+                   "&code_challenge_method=S256";
+        }
+        
         _logger.LogInformation("Etsy: Generating authorization URL");
         return Task.FromResult(url);
     }
 
-    public async Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri)
+    public async Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri, string? codeVerifier = null)
     {
         _logger.LogInformation("Etsy: Exchanging authorization code for tokens");
-        
-        var body = new Dictionary<string, string>
-        {
-            { "grant_type", "authorization_code" },
-            { "code", code },
-            { "redirect_uri", redirectUri },
-            { "client_id", _config.ClientId },
-            { "client_secret", _config.ClientSecret }
-        };
 
-        var response = await SendTokenRequestAsync(body);
+        Dictionary<string, string> body;
+        bool useBasicAuth;
+        if (!string.IsNullOrEmpty(codeVerifier))
+        {
+            // PKCE public-client token exchange: no client_secret, no Basic auth.
+            body = new Dictionary<string, string>
+            {
+                { "grant_type", "authorization_code" },
+                { "code", code },
+                { "redirect_uri", redirectUri },
+                { "client_id", _config.ClientId },
+                { "code_verifier", codeVerifier }
+            };
+            useBasicAuth = false;
+        }
+        else
+        {
+            // Legacy confidential-client token exchange.
+            body = new Dictionary<string, string>
+            {
+                { "grant_type", "authorization_code" },
+                { "code", code },
+                { "redirect_uri", redirectUri },
+                { "client_id", _config.ClientId },
+                { "client_secret", _config.ClientSecret }
+            };
+            useBasicAuth = true;
+        }
+
+        var response = await SendTokenRequestAsync(body, useBasicAuth);
         return response;
     }
 
@@ -71,7 +97,7 @@ public class EtsyApiService : IEtsyService
         return response;
     }
 
-    private async Task<EtsyTokenResponse> SendTokenRequestAsync(Dictionary<string, string> body)
+    private async Task<EtsyTokenResponse> SendTokenRequestAsync(Dictionary<string, string> body, bool useBasicAuth = true)
     {
         var content = new FormUrlEncodedContent(body);
         
@@ -80,9 +106,12 @@ public class EtsyApiService : IEtsyService
             Content = content
         };
         
-        // Add Basic auth header (client_id:client_secret)
-        var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_config.ClientId}:{_config.ClientSecret}"));
-        request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        // Add Basic auth header for confidential clients only.
+        if (useBasicAuth)
+        {
+            var credentials = Convert.ToBase64String(Encoding.UTF8.GetBytes($"{_config.ClientId}:{_config.ClientSecret}"));
+            request.Headers.Authorization = new AuthenticationHeaderValue("Basic", credentials);
+        }
         
         var response = await _httpClient.SendAsync(request);
         response.EnsureSuccessStatusCode();

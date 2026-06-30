@@ -29,6 +29,7 @@ public class ShopsController : ControllerBase
     public async Task<IActionResult> GetShops()
     {
         var userId = GetUserId();
+        if (userId is null) return Unauthorized();
         _logger.LogInformation("Getting shops for user {UserId}", userId);
         
         var shops = await _shopService.GetShopsAsync(userId);
@@ -56,6 +57,7 @@ public class ShopsController : ControllerBase
     public async Task<IActionResult> ConnectEtsy([FromBody] ConnectEtsyRequest? request = null)
     {
         var userId = GetUserId();
+        if (userId is null) return Unauthorized();
         _logger.LogInformation("Initiating Etsy connect for user {UserId}", userId);
         
         var result = await _shopService.InitiateEtsyConnectAsync(userId, request?.ReturnUrl);
@@ -66,6 +68,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Etsy OAuth callback (handled by frontend redirect).
     /// </summary>
+    [AllowAnonymous]
     [HttpPost("etsy/callback")]
     [ProducesResponseType(typeof(CallbackResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -107,6 +110,7 @@ public class ShopsController : ControllerBase
     public async Task<IActionResult> DeleteShop(Guid shopId)
     {
         var userId = GetUserId();
+        if (userId is null) return Unauthorized();
         _logger.LogInformation("Deleting shop {ShopId} for user {UserId}", shopId, userId);
         
         try
@@ -135,6 +139,7 @@ public class ShopsController : ControllerBase
     public async Task<IActionResult> Sync(Guid shopId)
     {
         var userId = GetUserId();
+        if (userId is null) return Unauthorized();
         _logger.LogInformation("Initiating sync for shop {ShopId} by user {UserId}", shopId, userId);
         
         try
@@ -167,12 +172,12 @@ public class ShopsController : ControllerBase
         }
     }
 
-    private Guid GetUserId()
+    private Guid? GetUserId()
     {
         var userIdClaim = User.FindFirstValue(ClaimTypes.NameIdentifier);
         if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
         {
-            throw new UnauthorizedAccessException("Invalid user identity");
+            return null;
         }
         return userId;
     }

@@ -56,15 +56,17 @@ public class ShopService : IShopService
     {
         _logger.LogInformation("Initiating Etsy OAuth flow for user {UserId}", userId);
         
-        // Generate state for OAuth security
+        // Generate state and PKCE verifier for OAuth security
         var state = Guid.NewGuid().ToString("N");
+        var codeVerifier = GenerateCodeVerifier();
         
-        // Store state with user context
-        _oauthStateStore.SaveState(state, userId.ToString(), returnUrl ?? string.Empty, TimeSpan.FromMinutes(10));
+        // Store state with user context and PKCE verifier
+        _oauthStateStore.SaveState(state, userId.ToString(), returnUrl ?? string.Empty, TimeSpan.FromMinutes(10), codeVerifier);
         
-        // Get authorization URL
+        // Build authorization URL with PKCE challenge
         var redirectUri = _etsyConfig.RedirectUri;
-        var authUrl = await _etsyService.GetAuthorizationUrlAsync(state, redirectUri);
+        var codeChallenge = GenerateCodeChallenge(codeVerifier);
+        var authUrl = await _etsyService.GetAuthorizationUrlAsync(state, redirectUri, codeChallenge);
         
         return new ConnectResponse { AuthUrl = authUrl };
     }
@@ -73,8 +75,8 @@ public class ShopService : IShopService
     {
         _logger.LogInformation("Handling Etsy OAuth callback with state {State}", state);
         
-        // Validate state and get user context
-        var (userIdStr, returnUrl) = _oauthStateStore.GetState(state);
+        // Validate state and get user context + PKCE verifier
+        var (userIdStr, returnUrl, codeVerifier) = _oauthStateStore.GetState(state);
         if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
         {
             _logger.LogWarning("Invalid or expired OAuth state: {State}", state);
@@ -84,8 +86,8 @@ public class ShopService : IShopService
         // Clean up state
         _oauthStateStore.DeleteState(state);
         
-        // Exchange code for tokens
-        var tokenResponse = await _etsyService.ExchangeCodeForTokenAsync(code, _etsyConfig.RedirectUri);
+        // Exchange code for tokens (PKCE)
+        var tokenResponse = await _etsyService.ExchangeCodeForTokenAsync(code, _etsyConfig.RedirectUri, codeVerifier);
         
         // Get shop info from Etsy
         var shopInfo = await _etsyService.GetShopInfoAsync(tokenResponse.AccessToken);
@@ -99,7 +101,7 @@ public class ShopService : IShopService
         
         // Encrypt tokens before storing
         var encryptedAccessToken = _tokenEncryption.Encrypt(tokenResponse.AccessToken);
-        var encryptedRefreshToken = _tokenEncryption.Encrypt(tokenResponse.RefreshToken);
+        var encryptedRefreshToken = _tokenEncryption.Encrypt(tokenResponse.RefreshToken ?? string.Empty);
         
         var shop = new Shop
         {
@@ -195,6 +197,8 @@ public class ShopService : IShopService
             _logger.LogInformation("Refreshed expired token for shop {ShopId}", shopId);
         }
         
+        // TODO: offload this synchronous work to a background worker when infra is ready.
+        // The 202 Accepted response above currently runs inline to keep the PR scope small.
         // Sync listings
         var listings = await _etsyService.GetListingsAsync(accessToken, shop.ExternalId);
         
@@ -250,7 +254,31 @@ public class ShopService : IShopService
         return new SyncResponse
         {
             JobId = $"sync_{shopId:N}_{DateTime.UtcNow.Ticks}",
-            Status = "Completed"
+            Status = "Accepted"
         };
+    }
+    private static string GenerateCodeVerifier()
+    {
+        const int length = 128;
+        const string chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789-._~";
+        var result = new char[length];
+        using var rng = System.Security.Cryptography.RandomNumberGenerator.Create();
+        var buffer = new byte[length];
+        rng.GetBytes(buffer);
+        for (int i = 0; i < length; i++)
+        {
+            result[i] = chars[buffer[i] % chars.Length];
+        }
+        return new string(result);
+    }
+
+    private static string GenerateCodeChallenge(string codeVerifier)
+    {
+        using var sha256 = System.Security.Cryptography.SHA256.Create();
+        var hash = sha256.ComputeHash(System.Text.Encoding.ASCII.GetBytes(codeVerifier));
+        return Convert.ToBase64String(hash)
+            .TrimEnd('=')
+            .Replace('+', '-')
+            .Replace('/', '_');
     }
 }

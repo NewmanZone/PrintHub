@@ -1,10 +1,12 @@
 using System.Security.Cryptography;
 using System.Text;
+using PrintHub.Core.Interfaces;
+using PrintHub.Core.Interfaces.Services;
 
 namespace PrintHub.Infrastructure.Services;
 
 /// <summary>
-/// Service for encrypting and decrypting sensitive data like OAuth tokens.
+/// Encrypts and decrypts tokens at rest.
 /// </summary>
 public interface ITokenEncryptionService
 {
@@ -13,106 +15,106 @@ public interface ITokenEncryptionService
 }
 
 /// <summary>
-/// Implementation using AES encryption.
+/// State store for OAuth state parameter and optional PKCE verifier.
+/// </summary>
+public interface IOAuthStateStore
+{
+    void SaveState(string state, string userId, string returnUrl, TimeSpan expiry, string? codeVerifier = null);
+    (string? userId, string? returnUrl, string? codeVerifier) GetState(string state);
+}
+
+/// <summary>
+/// AES-GCM encryption with a fresh nonce per Encrypt call.
+/// Format: base64(nonce(12) || ciphertext || tag(16)).
 /// </summary>
 public class AesTokenEncryptionService : ITokenEncryptionService
 {
     private readonly byte[] _key;
-    private readonly byte[] _iv;
 
-    public AesTokenEncryptionService(string encryptionKey)
+    public AesTokenEncryptionService(string key)
     {
-        // Derive a 256-bit key from the provided key using SHA256
-        using var sha256 = SHA256.Create();
-        _key = sha256.ComputeHash(Encoding.UTF8.GetBytes(encryptionKey));
-        _iv = new byte[16]; // AES uses 16-byte IV
-        RandomNumberGenerator.Fill(_iv);
+        if (string.IsNullOrWhiteSpace(key))
+            throw new ArgumentException("Encryption key is required.", nameof(key));
+
+        var keyBytes = Convert.FromBase64String(key);
+        if (keyBytes.Length is not (16 or 24 or 32))
+            throw new ArgumentException("Encryption key must be 16, 24, or 32 bytes.", nameof(key));
+
+        _key = keyBytes;
     }
 
     public string Encrypt(string plainText)
     {
-        using var aes = Aes.Create();
-        aes.Key = _key;
-        aes.IV = _iv;
-        
-        var encryptor = aes.CreateEncryptor();
+        if (string.IsNullOrEmpty(plainText))
+            return string.Empty;
+
         var plainBytes = Encoding.UTF8.GetBytes(plainText);
-        var encryptedBytes = encryptor.TransformFinalBlock(plainBytes, 0, plainBytes.Length);
-        
-        // Prepend IV to encrypted data for decryption
-        var result = new byte[_iv.Length + encryptedBytes.Length];
-        Buffer.BlockCopy(_iv, 0, result, 0, _iv.Length);
-        Buffer.BlockCopy(encryptedBytes, 0, result, _iv.Length, encryptedBytes.Length);
-        
+        var nonce = new byte[12];
+        RandomNumberGenerator.Fill(nonce);
+
+        var tag = new byte[16];
+        var cipherBytes = new byte[plainBytes.Length];
+
+        using var aes = new AesGcm(_key, 16);
+        aes.Encrypt(nonce, plainBytes, cipherBytes, tag);
+
+        var result = new byte[nonce.Length + cipherBytes.Length + tag.Length];
+        Buffer.BlockCopy(nonce, 0, result, 0, nonce.Length);
+        Buffer.BlockCopy(cipherBytes, 0, result, nonce.Length, cipherBytes.Length);
+        Buffer.BlockCopy(tag, 0, result, nonce.Length + cipherBytes.Length, tag.Length);
+
         return Convert.ToBase64String(result);
     }
 
     public string Decrypt(string cipherText)
     {
+        if (string.IsNullOrEmpty(cipherText))
+            return string.Empty;
+
         var cipherBytes = Convert.FromBase64String(cipherText);
-        
-        // Extract IV from the beginning
-        var iv = new byte[16];
-        Buffer.BlockCopy(cipherBytes, 0, iv, 0, iv.Length);
-        
-        var encryptedBytes = new byte[cipherBytes.Length - iv.Length];
-        Buffer.BlockCopy(cipherBytes, iv.Length, encryptedBytes, 0, encryptedBytes.Length);
-        
-        using var aes = Aes.Create();
-        aes.Key = _key;
-        aes.IV = iv;
-        
-        var decryptor = aes.CreateDecryptor();
-        var decryptedBytes = decryptor.TransformFinalBlock(encryptedBytes, 0, encryptedBytes.Length);
-        
-        return Encoding.UTF8.GetString(decryptedBytes);
+        if (cipherBytes.Length < 12 + 16)
+            throw new CryptographicException("Invalid ciphertext.");
+
+        var nonce = new byte[12];
+        var tag = new byte[16];
+        var cipher = new byte[cipherBytes.Length - 12 - 16];
+
+        Buffer.BlockCopy(cipherBytes, 0, nonce, 0, 12);
+        Buffer.BlockCopy(cipherBytes, cipherBytes.Length - 16, tag, 0, 16);
+        Buffer.BlockCopy(cipherBytes, 12, cipher, 0, cipher.Length);
+
+        var plainBytes = new byte[cipher.Length];
+
+        using var aes = new AesGcm(_key, 16);
+        aes.Decrypt(nonce, cipher, tag, plainBytes);
+
+        return Encoding.UTF8.GetString(plainBytes);
     }
 }
 
 /// <summary>
-/// In-memory store for OAuth state (in production, use Redis or similar).
+/// In-memory implementation of OAuth state store (suitable for single-instance deployments).
 /// </summary>
-public interface IOAuthStateStore
-{
-    void SaveState(string state, string userId, string returnUrl, TimeSpan expiry);
-    (string? userId, string? returnUrl) GetState(string state);
-    void DeleteState(string state);
-}
-
 public class InMemoryOAuthStateStore : IOAuthStateStore
 {
-    private readonly Dictionary<string, (string userId, string returnUrl, DateTime expiresAt)> _states = new();
-    private readonly object _lock = new();
+    private readonly Dictionary<string, (string userId, string returnUrl, string? codeVerifier, DateTime expiresAt)> _states = new();
 
-    public void SaveState(string state, string userId, string returnUrl, TimeSpan expiry)
+    public void SaveState(string state, string userId, string returnUrl, TimeSpan expiry, string? codeVerifier = null)
     {
-        lock (_lock)
-        {
-            _states[state] = (userId, returnUrl, DateTime.UtcNow.Add(expiry));
-        }
+        _states[state] = (userId, returnUrl, codeVerifier, DateTime.UtcNow.Add(expiry));
     }
 
-    public (string? userId, string? returnUrl) GetState(string state)
+    public (string? userId, string? returnUrl, string? codeVerifier) GetState(string state)
     {
-        lock (_lock)
-        {
-            if (_states.TryGetValue(state, out var data))
-            {
-                if (data.expiresAt > DateTime.UtcNow)
-                {
-                    return (data.userId, data.returnUrl);
-                }
-                _states.Remove(state);
-            }
-        }
-        return (null, null);
-    }
+        if (!_states.TryGetValue(state, out var entry))
+            return (null, null, null);
 
-    public void DeleteState(string state)
-    {
-        lock (_lock)
+        if (entry.expiresAt < DateTime.UtcNow)
         {
             _states.Remove(state);
+            return (null, null, null);
         }
+
+        return (entry.userId, entry.returnUrl, entry.codeVerifier);
     }
 }

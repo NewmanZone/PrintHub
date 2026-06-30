@@ -20,7 +20,7 @@ public class FakeEtsyService : IEtsyService
         _logger = logger;
     }
 
-    public Task<string> GetAuthorizationUrlAsync(string state, string redirectUri)
+    public Task<string> GetAuthorizationUrlAsync(string state, string redirectUri, string? codeChallenge = null)
     {
         _logger.LogInformation("Fake Etsy: Generating authorization URL with state {State}", state);
         
@@ -31,10 +31,17 @@ public class FakeEtsyService : IEtsyService
             $"&scope=listings_r:w%20shop_r" +
             $"&state={state}";
         
+        if (!string.IsNullOrEmpty(codeChallenge))
+        {
+            fakeAuthUrl +=
+                $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
+                "&code_challenge_method=S256";
+        }
+        
         return Task.FromResult(fakeAuthUrl);
     }
 
-    public Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri)
+    public Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri, string? codeVerifier = null)
     {
         _logger.LogInformation("Fake Etsy: Exchanging code {Code} for token", code);
         
