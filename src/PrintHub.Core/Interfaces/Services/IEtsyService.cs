@@ -1,5 +1,3 @@
-using PrintHub.Core.Models;
-
 namespace PrintHub.Core.Interfaces.Services;
 
 /// <summary>
