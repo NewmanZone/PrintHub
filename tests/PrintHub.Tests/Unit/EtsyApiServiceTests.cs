@@ -10,6 +10,8 @@ using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
 using PrintHub.Infrastructure.Services;
+using PrintHub.Infrastructure.Services.Etsy;
+using PrintHub.Core.Interfaces.Services;
 using Xunit;
 
 namespace PrintHub.Tests.Unit;
