@@ -135,8 +135,9 @@ public class EtsyApiService : IEtsyService
     {
         _logger.LogInformation("Etsy: Getting shop info");
         
-        var request = new HttpRequestMessage(HttpMethod.Get, $"{_config.BaseUrl}/v3/application/shop");
+        var request = new HttpRequestMessage(HttpMethod.Get, $"{_config.BaseUrl}/users/__SELF__/shops");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+        request.Headers.Add("x-api-key", _config.ClientId);
         
         var response = await _httpClient.SendAsync(request);
         
@@ -173,8 +174,9 @@ public class EtsyApiService : IEtsyService
         while (true)
         {
             var request = new HttpRequestMessage(HttpMethod.Get, 
-                $"{_config.BaseUrl}/v3/application/shop/{shopId}/listings/active?offset={offset}&limit={limit}");
+                $"{_config.BaseUrl}/shops/{shopId}/listings/active?limit=100&offset={offset}&includes=Images");
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", accessToken);
+            request.Headers.Add("x-api-key", _config.ClientId);
             
             var response = await _httpClient.SendAsync(request);
             
@@ -252,6 +254,12 @@ internal class EtsyTokenJson
     
     [System.Text.Json.Serialization.JsonPropertyName("token_type")]
     public string? TokenType { get; set; }
+}
+
+internal class EtsyShopResponse
+{
+    [System.Text.Json.Serialization.JsonPropertyName("results")]
+    public List<EtsyShopJson> Results { get; set; } = new();
 }
 
 internal class EtsyShopJson

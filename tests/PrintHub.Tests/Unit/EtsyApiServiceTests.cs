@@ -20,8 +20,9 @@ namespace PrintHub.Tests.Unit;
 [Collection("Unit Tests")]
 public class EtsyApiServiceTests
 {
-    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> responseHandler)
+    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> responseHandler, out List<HttpRequestMessage> capturedRequests)
     {
+        capturedRequests = new List<HttpRequestMessage>();
         var mockHandler = new Mock<HttpMessageHandler>();
         mockHandler
             .Protected()
@@ -29,7 +30,11 @@ public class EtsyApiServiceTests
                 "SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync((HttpRequestMessage request, CancellationToken ct) => responseHandler(request, ct));
+            .ReturnsAsync((HttpRequestMessage request, CancellationToken ct) =>
+            {
+                capturedRequests.Add(request);
+                return responseHandler(request, ct);
+            });
         
         return new HttpClient(mockHandler.Object);
     }
@@ -72,22 +77,30 @@ public class EtsyApiServiceTests
     }
 
     [Fact]
-    public async Task GetShopInfoAsync_DeserializesSnakeCaseShopResponse()
+    public async Task GetShopInfoAsync_DeserializesSnakeCaseShopResponse_AndUsesCorrectUrlAndHeaders()
     {
         // Arrange
         var json = @"{
-            ""shop_id"": 12345,
-            ""shop_name"": ""MyTestShop"",
-            ""email"": ""test@example.com"",
-            ""image_url"": ""https://example.com/image.jpg""
+            ""results"": [
+                {
+                    ""shop_id"": 12345,
+                    ""shop_name"": ""MyTestShop"",
+                    ""email"": ""test@example.com"",
+                    ""image_url"": ""https://example.com/image.jpg""
+                }
+            ]
         }";
         
         var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
-        });
+        }, out var capturedRequests);
         
-        var config = new EtsyConfiguration();
+        var config = new EtsyConfiguration
+        {
+            ClientId = "test_client_id",
+            BaseUrl = "https://openapi.etsy.com/v3"
+        };
         var logger = new Mock<ILogger<EtsyApiService>>();
         var service = new EtsyApiService(httpClient, config, logger.Object);
         
@@ -98,10 +111,18 @@ public class EtsyApiServiceTests
         result.Should().NotBeNull();
         result.ShopId.Should().Be("12345");
         result.ShopName.Should().Be("MyTestShop");
+        
+        capturedRequests.Should().HaveCount(1);
+        var request = capturedRequests[0];
+        request.RequestUri!.ToString().Should().Contain("/users/__SELF__/shops");
+        request.Headers.Authorization!.Scheme.Should().Be("Bearer");
+        request.Headers.Authorization.Parameter.Should().Be("access_token");
+        request.Headers.Contains("x-api-key").Should().BeTrue();
+        request.Headers.GetValues("x-api-key").First().Should().Be("test_client_id");
     }
 
     [Fact]
-    public async Task GetListingsAsync_DeserializesSnakeCaseListingResponse()
+    public async Task GetListingsAsync_DeserializesSnakeCaseListingResponse_AndUsesCorrectUrlAndHeaders()
     {
         // Arrange
         var json = @"{
@@ -124,9 +145,13 @@ public class EtsyApiServiceTests
         var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
-        });
+        }, out var capturedRequests);
         
-        var config = new EtsyConfiguration();
+        var config = new EtsyConfiguration
+        {
+            ClientId = "test_client_id",
+            BaseUrl = "https://openapi.etsy.com/v3"
+        };
         var logger = new Mock<ILogger<EtsyApiService>>();
         var service = new EtsyApiService(httpClient, config, logger.Object);
         
@@ -142,5 +167,15 @@ public class EtsyApiServiceTests
         listing.Price.Should().Be(24.99m);
         listing.State.Should().Be("active");
         listing.ImageUrl.Should().Be("https://example.com/img1.jpg");
+        
+        capturedRequests.Should().HaveCount(1);
+        var request = capturedRequests[0];
+        request.RequestUri!.ToString().Should().Contain("/shops/shop_123/listings/active");
+        request.RequestUri!.ToString().Should().Contain("limit=100");
+        request.RequestUri!.ToString().Should().Contain("includes=Images");
+        request.Headers.Authorization!.Scheme.Should().Be("Bearer");
+        request.Headers.Authorization.Parameter.Should().Be("access_token");
+        request.Headers.Contains("x-api-key").Should().BeTrue();
+        request.Headers.GetValues("x-api-key").First().Should().Be("test_client_id");
     }
 }

@@ -1,3 +1,4 @@
+using PrintHub.Core.Interfaces;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +9,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PrintHub.Core.Interfaces.Services;
 using PrintHub.Infrastructure.Services;
+using PrintHub.Infrastructure.Repositories;
 
 namespace PrintHub.Api;
 
@@ -33,6 +35,19 @@ public static class Phase1Api
         services.AddSingleton<EtsyIntegrationService>();
         services.AddSingleton<IOAuthStateStore, InMemoryOAuthStateStore>();
         services.AddScoped<IShopService, ShopService>();
+        services.AddSingleton<IShopRepository, InMemoryShopRepository>();
+        services.AddSingleton<IProductRepository, InMemoryProductRepository>();
+        services.AddSingleton<ITokenEncryptionService>(sp => 
+            new AesTokenEncryptionService(configuration["TokenEncryption:Key"] 
+                ?? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))));
+        services.AddSingleton<EtsyConfiguration>(sp => new EtsyConfiguration
+        {
+            ClientId = configuration["Etsy:ClientId"] ?? string.Empty,
+            ClientSecret = configuration["Etsy:ClientSecret"] ?? string.Empty,
+            RedirectUri = configuration["Etsy:RedirectUri"] ?? string.Empty,
+            BaseUrl = configuration["Etsy:BaseUrl"] ?? "https://openapi.etsy.com/v3"
+        });
+        services.AddHttpClient<IEtsyService, EtsyApiService>();
         return services;
     }
 
