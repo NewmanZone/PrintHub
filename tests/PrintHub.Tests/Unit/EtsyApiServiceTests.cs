@@ -9,7 +9,7 @@ using FluentAssertions;
 using Microsoft.Extensions.Logging;
 using Moq;
 using Moq.Protected;
-using PrintHub.Infrastructure.Services.Etsy;
+using PrintHub.Infrastructure.Services;
 using Xunit;
 
 namespace PrintHub.Tests.Unit;
@@ -133,7 +133,7 @@ public class EtsyApiServiceTests
         // Assert
         result.Should().NotBeNull();
         result.Should().HaveCount(1);
-        var listing = result[0];
+        var listing = result.First();
         listing.ListingId.Should().Be("98765");
         listing.Title.Should().Be("Dino Hook");
         listing.Price.Should().Be(24.99m);
