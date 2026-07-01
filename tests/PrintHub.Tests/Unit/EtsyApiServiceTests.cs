@@ -20,9 +20,11 @@ namespace PrintHub.Tests.Unit;
 [Collection("Unit Tests")]
 public class EtsyApiServiceTests
 {
-    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> responseHandler, out List<HttpRequestMessage> capturedRequests)
+    private static readonly List<HttpRequestMessage> _capturedRequests = new();
+
+    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> responseHandler)
     {
-        capturedRequests = new List<HttpRequestMessage>();
+        _capturedRequests.Clear();
         var mockHandler = new Mock<HttpMessageHandler>();
         mockHandler
             .Protected()
@@ -32,7 +34,7 @@ public class EtsyApiServiceTests
                 ItExpr.IsAny<CancellationToken>())
             .ReturnsAsync((HttpRequestMessage request, CancellationToken ct) =>
             {
-                capturedRequests.Add(request);
+                _capturedRequests.Add(request);
                 return responseHandler(request, ct);
             });
         
@@ -50,7 +52,7 @@ public class EtsyApiServiceTests
             ""token_type"": ""Bearer""
         }";
         
-        var httpClient = CreateMockHttpClient(out var _, (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
@@ -91,7 +93,7 @@ public class EtsyApiServiceTests
             ]
         }";
         
-        var httpClient = CreateMockHttpClient(out var _, (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         }, out var capturedRequests);
@@ -142,7 +144,7 @@ public class EtsyApiServiceTests
             ""pagination"": { ""next"": null }
         }";
         
-        var httpClient = CreateMockHttpClient(out var _, (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         }, out var capturedRequests);
