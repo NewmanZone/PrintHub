@@ -6,6 +6,8 @@ using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
+using PrintHub.Core.Interfaces.Services;
+using PrintHub.Infrastructure.Services;
 
 namespace PrintHub.Api;
 
