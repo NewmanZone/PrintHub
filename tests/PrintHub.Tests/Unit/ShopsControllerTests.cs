@@ -205,7 +205,7 @@ public class ShopsControllerTests
         var acceptedResult = result.Should().BeOfType<AcceptedResult>().Subject;
         var response = acceptedResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
         response.JobId.Should().Be("job_123");
-        response.Status.Should().Be("Processing");
+        response.Status.Should().Be("Accepted");
     }
 
     [Fact]

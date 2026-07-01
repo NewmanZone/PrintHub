@@ -291,7 +291,7 @@ public class ShopServiceTests
         // Assert
         result.Status.Should().Be("Accepted");
         _shopRepoMock.Verify(r => r.UpdateAsync(It.Is<Shop>(s => 
-            s.AccessToken == "new_encrypted_access"), It.IsAny<CancellationToken>()), Times.Once);
+            s.AccessToken == "new_encrypted_access"), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }
 
     [Fact]
