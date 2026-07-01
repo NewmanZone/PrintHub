@@ -96,7 +96,7 @@ public class EtsyApiServiceTests
         var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
-        }, out var capturedRequests);
+        });
         
         var config = new EtsyConfiguration
         {
@@ -114,8 +114,8 @@ public class EtsyApiServiceTests
         result.ShopId.Should().Be("12345");
         result.ShopName.Should().Be("MyTestShop");
         
-        capturedRequests.Should().HaveCount(1);
-        var request = capturedRequests[0];
+        _capturedRequests.Should().HaveCount(1);
+        var request = _capturedRequests[0];
         request.RequestUri!.ToString().Should().Contain("/users/__SELF__/shops");
         request.Headers.Authorization!.Scheme.Should().Be("Bearer");
         request.Headers.Authorization.Parameter.Should().Be("access_token");
@@ -147,7 +147,7 @@ public class EtsyApiServiceTests
         var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
-        }, out var capturedRequests);
+        });
         
         var config = new EtsyConfiguration
         {
@@ -170,8 +170,8 @@ public class EtsyApiServiceTests
         listing.State.Should().Be("active");
         listing.ImageUrl.Should().Be("https://example.com/img1.jpg");
         
-        capturedRequests.Should().HaveCount(1);
-        var request = capturedRequests[0];
+        _capturedRequests.Should().HaveCount(1);
+        var request = _capturedRequests[0];
         request.RequestUri!.ToString().Should().Contain("/shops/shop_123/listings/active");
         request.RequestUri!.ToString().Should().Contain("limit=100");
         request.RequestUri!.ToString().Should().Contain("includes=Images");
