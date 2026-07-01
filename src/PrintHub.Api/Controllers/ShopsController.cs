@@ -32,7 +32,7 @@ public class ShopsController : ControllerBase
         if (userId is null) return Unauthorized();
         _logger.LogInformation("Getting shops for user {UserId}", userId);
         
-        var shops = await _shopService.GetShopsAsync(userId);
+        var shops = await _shopService.GetShopsAsync(userId.Value);
         
         return Ok(new ShopsResponse
         {
@@ -60,7 +60,7 @@ public class ShopsController : ControllerBase
         if (userId is null) return Unauthorized();
         _logger.LogInformation("Initiating Etsy connect for user {UserId}", userId);
         
-        var result = await _shopService.InitiateEtsyConnectAsync(userId, request?.ReturnUrl);
+        var result = await _shopService.InitiateEtsyConnectAsync(userId.Value, request?.ReturnUrl);
         
         return Ok(new ConnectResponseDto { AuthUrl = result.AuthUrl });
     }
@@ -115,7 +115,7 @@ public class ShopsController : ControllerBase
         
         try
         {
-            await _shopService.DeleteShopAsync(userId, shopId);
+            await _shopService.DeleteShopAsync(userId.Value, shopId);
             return NoContent();
         }
         catch (KeyNotFoundException)
@@ -144,7 +144,7 @@ public class ShopsController : ControllerBase
         
         try
         {
-            var result = await _shopService.InitiateSyncAsync(userId, shopId);
+            var result = await _shopService.InitiateSyncAsync(userId.Value, shopId);
             
             return Accepted(new SyncResponseDto
             {
