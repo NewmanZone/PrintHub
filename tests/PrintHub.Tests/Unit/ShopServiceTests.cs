@@ -194,7 +194,7 @@ public class ShopServiceTests
         var result = await _shopService.InitiateSyncAsync(userId, shopId);
 
         // Assert
-        result.Status.Should().Be("Accepted");
+        result.Status.Should().Be("Completed");
         _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 1"), It.IsAny<CancellationToken>()), Times.Once);
         _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 2"), It.IsAny<CancellationToken>()), Times.Once);
     }
@@ -240,7 +240,7 @@ public class ShopServiceTests
         var result = await _shopService.InitiateSyncAsync(userId, shopId);
 
         // Assert
-        result.Status.Should().Be("Accepted");
+        result.Status.Should().Be("Completed");
         _productRepoMock.Verify(r => r.UpdateAsync(It.Is<Product>(p => 
             p.Name == "Updated Product 1" && p.EtsyPrice == 24.99m), It.IsAny<CancellationToken>()), Times.Once);
         _productRepoMock.Verify(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()), Times.Never);
@@ -289,7 +289,7 @@ public class ShopServiceTests
         var result = await _shopService.InitiateSyncAsync(userId, shopId);
 
         // Assert
-        result.Status.Should().Be("Accepted");
+        result.Status.Should().Be("Completed");
         _shopRepoMock.Verify(r => r.UpdateAsync(It.Is<Shop>(s => 
             s.AccessToken == "new_encrypted_access"), It.IsAny<CancellationToken>()), Times.AtLeastOnce);
     }

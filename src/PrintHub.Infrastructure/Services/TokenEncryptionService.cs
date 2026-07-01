@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Security.Cryptography;
 using System.Text;
 using PrintHub.Core.Interfaces;
@@ -96,9 +97,13 @@ public class AesTokenEncryptionService : ITokenEncryptionService
 /// <summary>
 /// In-memory implementation of OAuth state store (suitable for single-instance deployments).
 /// </summary>
+/// <summary>
+/// Thread-safe in-memory implementation of OAuth state store using ConcurrentDictionary.
+/// Suitable for single-instance deployments; for multi-instance, use a distributed cache.
+/// </summary>
 public class InMemoryOAuthStateStore : IOAuthStateStore
 {
-    private readonly Dictionary<string, (string userId, string returnUrl, string? codeVerifier, DateTime expiresAt)> _states = new();
+    private readonly ConcurrentDictionary<string, (string userId, string returnUrl, string? codeVerifier, DateTime expiresAt)> _states = new();
 
     public void SaveState(string state, string userId, string returnUrl, TimeSpan expiry, string? codeVerifier = null)
     {
@@ -112,7 +117,7 @@ public class InMemoryOAuthStateStore : IOAuthStateStore
 
         if (entry.expiresAt < DateTime.UtcNow)
         {
-            _states.Remove(state);
+            _states.TryRemove(state, out _);
             return (null, null, null);
         }
 
@@ -121,6 +126,6 @@ public class InMemoryOAuthStateStore : IOAuthStateStore
 
     public void DeleteState(string state)
     {
-        _states.Remove(state);
+        _states.TryRemove(state, out _);
     }
 }

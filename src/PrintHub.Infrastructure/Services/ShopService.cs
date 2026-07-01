@@ -197,8 +197,6 @@ public class ShopService : IShopService
             _logger.LogInformation("Refreshed expired token for shop {ShopId}", shopId);
         }
         
-        // TODO: offload this synchronous work to a background worker when infra is ready.
-        // The 202 Accepted response above currently runs inline to keep the PR scope small.
         // Sync listings
         var listings = await _etsyService.GetListingsAsync(accessToken, shop.ExternalId);
         
@@ -254,7 +252,7 @@ public class ShopService : IShopService
         return new SyncResponse
         {
             JobId = $"sync_{shopId:N}_{DateTime.UtcNow.Ticks}",
-            Status = "Accepted"
+            Status = "Completed"
         };
     }
     private static string GenerateCodeVerifier()

@@ -196,7 +196,7 @@ public class ShopsControllerTests
         var userId = GetUserId();
         var shopId = Guid.NewGuid();
         _shopServiceMock.Setup(s => s.InitiateSyncAsync(userId, shopId))
-            .ReturnsAsync(new SyncResponse { JobId = "job_123", Status = "Accepted" });
+            .ReturnsAsync(new SyncResponse { JobId = "job_123", Status = "Completed" });
 
         // Act
         var result = await _controller.Sync(shopId);
@@ -205,7 +205,7 @@ public class ShopsControllerTests
         var acceptedResult = result.Should().BeOfType<AcceptedResult>().Subject;
         var response = acceptedResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
         response.JobId.Should().Be("job_123");
-        response.Status.Should().Be("Accepted");
+        response.Status.Should().Be("Completed");
     }
 
     [Fact]

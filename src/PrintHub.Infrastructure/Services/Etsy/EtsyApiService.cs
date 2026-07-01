@@ -241,41 +241,76 @@ public class EtsyApiService : IEtsyService
 // JSON DTOs
 internal class EtsyTokenJson
 {
+    [System.Text.Json.Serialization.JsonPropertyName("access_token")]
     public string AccessToken { get; set; } = string.Empty;
+    
+    [System.Text.Json.Serialization.JsonPropertyName("refresh_token")]
     public string? RefreshToken { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("expires_in")]
     public int ExpiresIn { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("token_type")]
     public string? TokenType { get; set; }
 }
 
 internal class EtsyShopJson
 {
+    [System.Text.Json.Serialization.JsonPropertyName("shop_id")]
     public long ShopId { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("shop_name")]
     public string? ShopName { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("email")]
     public string? Email { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("image_url")]
     public string? ImageUrl { get; set; }
 }
 
 internal class EtsyListingResponse
 {
+    [System.Text.Json.Serialization.JsonPropertyName("results")]
     public List<EtsyListingItem> Results { get; set; } = new();
+    
+    [System.Text.Json.Serialization.JsonPropertyName("pagination")]
     public EtsyPagination? Pagination { get; set; }
 }
 
 internal class EtsyListingItem
 {
+    [System.Text.Json.Serialization.JsonPropertyName("listing_id")]
     public long ListingId { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("title")]
     public string? Title { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("description")]
     public string? Description { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("price")]
     public decimal? Price { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("state")]
     public string? State { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("creation_date")]
     public DateTime? CreationDate { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("last_modified_date")]
     public DateTime? LastModifiedDate { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("main_image")]
     public EtsyImageInfo? MainImage { get; set; }
+    
+    [System.Text.Json.Serialization.JsonPropertyName("images")]
     public List<EtsyImageInfo>? Images { get; set; }
 }
 
 internal class EtsyImageInfo
 {
+    [System.Text.Json.Serialization.JsonPropertyName("url_full")]
     public string? UrlFull { get; set; }
 }
 
