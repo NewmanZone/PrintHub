@@ -132,7 +132,7 @@ public class ShopsController : ControllerBase
     /// Manually trigger Etsy listing sync.
     /// </summary>
     [HttpPost("{shopId}/sync")]
-    [ProducesResponseType(typeof(SyncResponseDto), StatusCodes.Status202Accepted)]
+    [ProducesResponseType(typeof(SyncResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
@@ -146,7 +146,7 @@ public class ShopsController : ControllerBase
         {
             var result = await _shopService.InitiateSyncAsync(userId.Value, shopId);
             
-            return Accepted(new SyncResponseDto
+            return Ok(new SyncResponseDto
             {
                 JobId = result.JobId,
                 Status = result.Status

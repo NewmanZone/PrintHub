@@ -29,6 +29,8 @@ public static class Phase1Api
         services.AddSingleton<IPrintHubStore, PrintHubStore>();
         services.AddSingleton<IPrintHubFileStorage, PrintHubFileStorage>();
         services.AddSingleton<EtsyIntegrationService>();
+        services.AddSingleton<IOAuthStateStore, InMemoryOAuthStateStore>();
+        services.AddScoped<IShopService, ShopService>();
         return services;
     }
 

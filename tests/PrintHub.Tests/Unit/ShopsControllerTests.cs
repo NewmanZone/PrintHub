@@ -202,8 +202,8 @@ public class ShopsControllerTests
         var result = await _controller.Sync(shopId);
 
         // Assert
-        var acceptedResult = result.Should().BeOfType<AcceptedResult>().Subject;
-        var response = acceptedResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
         response.JobId.Should().Be("job_123");
         response.Status.Should().Be("Completed");
     }

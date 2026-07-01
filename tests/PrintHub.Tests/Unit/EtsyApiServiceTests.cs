@@ -1,0 +1,143 @@
+using System;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using FluentAssertions;
+using Microsoft.Extensions.Logging;
+using Moq;
+using Moq.Protected;
+using PrintHub.Infrastructure.Services.Etsy;
+using Xunit;
+
+namespace PrintHub.Tests.Unit;
+
+[Collection("Unit Tests")]
+public class EtsyApiServiceTests
+{
+    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, HttpResponseMessage> responseHandler)
+    {
+        var mockHandler = new Mock<HttpMessageHandler>();
+        mockHandler
+            .Protected()
+            .Setup<Task<HttpResponseMessage>>(
+                "SendAsync",
+                ItExpr.IsAny<HttpRequestMessage>(),
+                ItExpr.IsAny<CancellationToken>())
+            .ReturnsAsync(responseHandler);
+        
+        return new HttpClient(mockHandler.Object);
+    }
+
+    [Fact]
+    public async Task ExchangeCodeForTokenAsync_DeserializesSnakeCaseTokenResponse()
+    {
+        // Arrange
+        var json = @"{
+            ""access_token"": ""token_123"",
+            ""refresh_token"": ""refresh_456"",
+            ""expires_in"": 3600,
+            ""token_type"": ""Bearer""
+        }";
+        
+        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        
+        var config = new EtsyConfiguration
+        {
+            ClientId = "test_client",
+            ClientSecret = "test_secret",
+            RedirectUri = "https://localhost/callback"
+        };
+        
+        var logger = new Mock<ILogger<EtsyApiService>>();
+        var service = new EtsyApiService(httpClient, config, logger.Object);
+        
+        // Act
+        var result = await service.ExchangeCodeForTokenAsync("code", config.RedirectUri, "verifier");
+        
+        // Assert
+        result.Should().NotBeNull();
+        result.AccessToken.Should().Be("token_123");
+        result.RefreshToken.Should().Be("refresh_456");
+        result.ExpiresIn.Should().Be(3600);
+        result.TokenType.Should().Be("Bearer");
+    }
+
+    [Fact]
+    public async Task GetShopInfoAsync_DeserializesSnakeCaseShopResponse()
+    {
+        // Arrange
+        var json = @"{
+            ""shop_id"": 12345,
+            ""shop_name"": ""MyTestShop"",
+            ""email"": ""test@example.com"",
+            ""image_url"": ""https://example.com/image.jpg""
+        }";
+        
+        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        
+        var config = new EtsyConfiguration();
+        var logger = new Mock<ILogger<EtsyApiService>>();
+        var service = new EtsyApiService(httpClient, config, logger.Object);
+        
+        // Act
+        var result = await service.GetShopInfoAsync("access_token");
+        
+        // Assert
+        result.Should().NotBeNull();
+        result.ShopId.Should().Be("12345");
+        result.ShopName.Should().Be("MyTestShop");
+    }
+
+    [Fact]
+    public async Task GetListingsAsync_DeserializesSnakeCaseListingResponse()
+    {
+        // Arrange
+        var json = @"{
+            ""results"": [
+                {
+                    ""listing_id"": 98765,
+                    ""title"": ""Dino Hook"",
+                    ""description"": ""A hook"",
+                    ""price"": 24.99,
+                    ""state"": ""active"",
+                    ""creation_date"": ""2026-01-01T00:00:00Z"",
+                    ""last_modified_date"": ""2026-06-15T00:00:00Z"",
+                    ""main_image"": { ""url_full"": ""https://example.com/img1.jpg"" },
+                    ""images"": [{ ""url_full"": ""https://example.com/img2.jpg"" }]
+                }
+            ],
+            ""pagination"": { ""next"": null }
+        }";
+        
+        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new StringContent(json, Encoding.UTF8, "application/json")
+        });
+        
+        var config = new EtsyConfiguration();
+        var logger = new Mock<ILogger<EtsyApiService>>();
+        var service = new EtsyApiService(httpClient, config, logger.Object);
+        
+        // Act
+        var result = await service.GetListingsAsync("access_token", "shop_123");
+        
+        // Assert
+        result.Should().NotBeNull();
+        result.Should().HaveCount(1);
+        var listing = result[0];
+        listing.ListingId.Should().Be("98765");
+        listing.Title.Should().Be("Dino Hook");
+        listing.Price.Should().Be(24.99m);
+        listing.State.Should().Be("active");
+        listing.ImageUrl.Should().Be("https://example.com/img1.jpg");
+    }
+}
