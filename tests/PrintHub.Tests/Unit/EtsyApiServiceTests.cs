@@ -19,7 +19,7 @@ namespace PrintHub.Tests.Unit;
 [Collection("Unit Tests")]
 public class EtsyApiServiceTests
 {
-    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, HttpResponseMessage> responseHandler)
+    private static HttpClient CreateMockHttpClient(Func<HttpRequestMessage, CancellationToken, HttpResponseMessage> responseHandler)
     {
         var mockHandler = new Mock<HttpMessageHandler>();
         mockHandler
@@ -28,7 +28,7 @@ public class EtsyApiServiceTests
                 "SendAsync",
                 ItExpr.IsAny<HttpRequestMessage>(),
                 ItExpr.IsAny<CancellationToken>())
-            .ReturnsAsync(responseHandler);
+            .ReturnsAsync((HttpRequestMessage request, CancellationToken ct) => responseHandler(request, ct));
         
         return new HttpClient(mockHandler.Object);
     }
@@ -44,7 +44,7 @@ public class EtsyApiServiceTests
             ""token_type"": ""Bearer""
         }";
         
-        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient(new (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
@@ -81,7 +81,7 @@ public class EtsyApiServiceTests
             ""image_url"": ""https://example.com/image.jpg""
         }";
         
-        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient(new (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
@@ -120,7 +120,7 @@ public class EtsyApiServiceTests
             ""pagination"": { ""next"": null }
         }";
         
-        var httpClient = CreateMockHttpClient(_ => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient(new (_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
