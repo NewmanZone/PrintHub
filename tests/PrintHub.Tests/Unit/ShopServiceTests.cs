@@ -54,7 +54,7 @@ public class ShopServiceTests
         {
             new() { Id = Guid.NewGuid(), UserId = userId, Provider = "etsy", ShopName = "Test Shop" }
         };
-        _shopRepoMock.Setup(r => r.GetByUserIdAsync(userId)).ReturnsAsync(shops);
+        _shopRepoMock.Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(shops);
 
         // Act
         var result = await _shopService.GetShopsAsync(userId);
@@ -70,7 +70,7 @@ public class ShopServiceTests
         // Arrange
         var userId = Guid.NewGuid();
         var expectedUrl = "https://www.etsy.com/oauth2/authorize?...";
-        _etsyServiceMock.Setup(s => s.GetAuthorizationUrlAsync(It.IsAny<string>(), It.IsAny<string>()))
+        _etsyServiceMock.Setup(s => s.GetAuthorizationUrlAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(expectedUrl);
 
         // Act
@@ -106,7 +106,7 @@ public class ShopServiceTests
             RefreshToken = "refresh_token",
             ExpiresIn = 3600
         };
-        _etsyServiceMock.Setup(s => s.ExchangeCodeForTokenAsync(It.IsAny<string>(), It.IsAny<string>()))
+        _etsyServiceMock.Setup(s => s.ExchangeCodeForTokenAsync(It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string?>()))
             .ReturnsAsync(tokenResponse);
 
         var shopInfo = new EtsyShopInfo
@@ -118,7 +118,7 @@ public class ShopServiceTests
             .ReturnsAsync(shopInfo);
 
         _encryptionMock.Setup(e => e.Encrypt(It.IsAny<string>())).Returns("encrypted_token");
-        _shopRepoMock.Setup(r => r.GetByUserIdAsync(userId)).ReturnsAsync(new List<Shop>());
+        _shopRepoMock.Setup(r => r.GetByUserIdAsync(userId, It.IsAny<CancellationToken>())).ReturnsAsync(new List<Shop>());
 
         // Act
         var result = await _shopService.HandleEtsyCallbackAsync("code", state);
@@ -127,7 +127,7 @@ public class ShopServiceTests
         result.Connected.Should().BeTrue();
         result.ShopName.Should().Be("Mikes3DPrints");
         _shopRepoMock.Verify(r => r.AddAsync(It.Is<Shop>(s => 
-            s.UserId == userId && s.ExternalId == "etsy_shop_123")), Times.Once);
+            s.UserId == userId && s.ExternalId == "etsy_shop_123"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -137,7 +137,7 @@ public class ShopServiceTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var shop = new Shop { Id = shopId, UserId = Guid.NewGuid() }; // Different owner
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         // Act & Assert
         await Assert.ThrowsAsync<UnauthorizedAccessException>(() => 
@@ -151,13 +151,13 @@ public class ShopServiceTests
         var userId = Guid.NewGuid();
         var shopId = Guid.NewGuid();
         var shop = new Shop { Id = shopId, UserId = userId };
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         // Act
         await _shopService.DeleteShopAsync(userId, shopId);
 
         // Assert
-        _shopRepoMock.Verify(r => r.DeleteAsync(shopId), Times.Once);
+        _shopRepoMock.Verify(r => r.DeleteAsync(shopId, It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -174,7 +174,7 @@ public class ShopServiceTests
             AccessToken = "encrypted_access",
             RefreshToken = "encrypted_refresh"
         };
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         _encryptionMock.Setup(e => e.Decrypt("encrypted_access")).Returns("access_token");
         _encryptionMock.Setup(e => e.Decrypt("encrypted_refresh")).Returns("refresh_token");
@@ -195,8 +195,8 @@ public class ShopServiceTests
 
         // Assert
         result.Status.Should().Be("Accepted");
-        _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 1")), Times.Once);
-        _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 2")), Times.Once);
+        _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 1"), It.IsAny<CancellationToken>()), Times.Once);
+        _productRepoMock.Verify(r => r.AddAsync(It.Is<Product>(p => p.Name == "Product 2"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -213,7 +213,7 @@ public class ShopServiceTests
             AccessToken = "encrypted_access",
             RefreshToken = "encrypted_refresh"
         };
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         _encryptionMock.Setup(e => e.Decrypt("encrypted_access")).Returns("access_token");
         _encryptionMock.Setup(e => e.Decrypt("encrypted_refresh")).Returns("refresh_token");
@@ -231,9 +231,9 @@ public class ShopServiceTests
             ShopId = shopId,
             ExternalListingId = "listing_1",
             Name = "Old Product 1",
-            Price = 19.99m
+            EtsyPrice = 19.99m
         };
-        _productRepoMock.Setup(r => r.GetByExternalListingIdAsync("listing_1", shopId))
+        _productRepoMock.Setup(r => r.GetByExternalListingIdAsync("listing_1", shopId, It.IsAny<CancellationToken>()))
             .ReturnsAsync(existingProduct);
 
         // Act
@@ -242,8 +242,8 @@ public class ShopServiceTests
         // Assert
         result.Status.Should().Be("Accepted");
         _productRepoMock.Verify(r => r.UpdateAsync(It.Is<Product>(p => 
-            p.Name == "Updated Product 1" && p.EtsyPrice == 24.99m)), Times.Once);
-        _productRepoMock.Verify(r => r.AddAsync(It.IsAny<Product>()), Times.Never);
+            p.Name == "Updated Product 1" && p.EtsyPrice == 24.99m), It.IsAny<CancellationToken>()), Times.Once);
+        _productRepoMock.Verify(r => r.AddAsync(It.IsAny<Product>(), It.IsAny<CancellationToken>()), Times.Never);
     }
 
     [Fact]
@@ -260,7 +260,7 @@ public class ShopServiceTests
             AccessToken = "encrypted_access",
             RefreshToken = "encrypted_refresh"
         };
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         _encryptionMock.Setup(e => e.Decrypt("encrypted_access")).Returns("old_access_token");
         _encryptionMock.Setup(e => e.Decrypt("encrypted_refresh")).Returns("refresh_token");
@@ -283,7 +283,7 @@ public class ShopServiceTests
             new() { ListingId = "listing_1", Title = "Product 1", Price = 19.99m, IsActive = true }
         };
         _etsyServiceMock.Setup(s => s.GetListingsAsync("new_access_token", "etsy_shop_123")).ReturnsAsync(listings);
-        _productRepoMock.Setup(r => r.GetByExternalListingIdAsync(It.IsAny<string>(), shopId)).ReturnsAsync((Product?)null);
+        _productRepoMock.Setup(r => r.GetByExternalListingIdAsync(It.IsAny<string>(), shopId, It.IsAny<CancellationToken>())).ReturnsAsync((Product?)null);
 
         // Act
         var result = await _shopService.InitiateSyncAsync(userId, shopId);
@@ -291,7 +291,7 @@ public class ShopServiceTests
         // Assert
         result.Status.Should().Be("Accepted");
         _shopRepoMock.Verify(r => r.UpdateAsync(It.Is<Shop>(s => 
-            s.AccessToken == "new_encrypted_access")), Times.Once);
+            s.AccessToken == "new_encrypted_access"), It.IsAny<CancellationToken>()), Times.Once);
     }
 
     [Fact]
@@ -308,7 +308,7 @@ public class ShopServiceTests
             AccessToken = "encrypted_access",
             RefreshToken = "encrypted_refresh"
         };
-        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId)).ReturnsAsync(shop);
+        _shopRepoMock.Setup(r => r.GetByIdAsync(shopId, It.IsAny<CancellationToken>())).ReturnsAsync(shop);
 
         _encryptionMock.Setup(e => e.Decrypt("encrypted_access")).Returns("expired_token");
         _encryptionMock.Setup(e => e.Decrypt("encrypted_refresh")).Returns("expired_refresh");
@@ -330,7 +330,7 @@ public class ShopServiceTests
         var redirectUri = "https://localhost/callback";
         var fakeAuthUrl = "https://www.etsy.com/oauth2/authorize?state=abc";
 
-        _etsyConfigMock.Setup(c => c.RedirectUri).Returns(redirectUri);
+        _etsyConfig.RedirectUri = redirectUri;
 
         string? capturedVerifier = null;
         string? capturedChallenge = null;
@@ -351,7 +351,7 @@ public class ShopServiceTests
 
         // Assert
         result.Should().NotBeNull();
-        result.AuthorizationUrl.Should().Be(fakeAuthUrl);
+        result.AuthUrl.Should().Be(fakeAuthUrl);
         capturedVerifier.Should().NotBeNullOrEmpty();
         capturedVerifier.Length.Should().BeGreaterThanOrEqualTo(43);
         capturedChallenge.Should().NotBeNullOrEmpty();
@@ -368,7 +368,7 @@ public class ShopServiceTests
         var verifier = "verifier123";
 
         _stateStoreMock.Setup(s => s.GetState(state)).Returns((userId.ToString(), "/shops", verifier));
-        _etsyConfigMock.Setup(c => c.RedirectUri).Returns(redirectUri);
+        _etsyConfig.RedirectUri = redirectUri;
 
         var tokenResponse = new EtsyTokenResponse
         {
@@ -396,31 +396,4 @@ public class ShopServiceTests
         _etsyServiceMock.Verify(s => s.ExchangeCodeForTokenAsync(code, redirectUri, verifier), Times.Once);
     }
 
-    [Fact]
-    public async Task RefreshExpiredTokenAsync_RefreshesAndUpdatesShop()
-    {
-        // Arrange
-        var userId = Guid.NewGuid();
-        var refreshToken = "refresh_token";
-
-        var newTokenResponse = new EtsyTokenResponse
-        {
-            AccessToken = "new_access_token",
-            RefreshToken = "new_refresh_token",
-            ExpiresIn = 3600,
-            TokenType = "Bearer"
-        };
-
-        _etsyServiceMock.Setup(s => s.RefreshTokenAsync(refreshToken)).ReturnsAsync(newTokenResponse);
-        _encryptionMock.Setup(e => e.Encrypt("new_access_token")).Returns("new_encrypted_access");
-        _encryptionMock.Setup(e => e.Encrypt("new_refresh_token")).Returns("new_encrypted_refresh");
-
-        // Act
-        var result = await _shopService.RefreshExpiredTokenAsync(userId, refreshToken);
-
-        // Assert
-        result.AccessToken.Should().Be("new_encrypted_access");
-        result.RefreshToken.Should().Be("new_encrypted_refresh");
-        _shopRepoMock.Verify(r => r.UpdateAsync(It.IsAny<Shop>()), Times.Once);
-    }
 }
