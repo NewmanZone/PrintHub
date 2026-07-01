@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using Microsoft.Extensions.Logging;
@@ -149,10 +150,12 @@ public class EtsyApiService : IEtsyService
         response.EnsureSuccessStatusCode();
         
         var json = await response.Content.ReadAsStringAsync();
-        var shopData = JsonSerializer.Deserialize<EtsyShopJson>(json, new JsonSerializerOptions
+        var shopResponse = JsonSerializer.Deserialize<EtsyShopResponse>(json, new JsonSerializerOptions
         {
             PropertyNameCaseInsensitive = true
         }) ?? throw new InvalidOperationException("Failed to deserialize Etsy shop response");
+        
+        var shopData = shopResponse.Results.FirstOrDefault() ?? throw new InvalidOperationException("No shops found in Etsy response");
         
         return new EtsyShopInfo
         {
