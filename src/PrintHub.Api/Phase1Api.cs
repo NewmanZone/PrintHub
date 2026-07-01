@@ -1,4 +1,7 @@
 using PrintHub.Core.Interfaces;
+using PrintHub.Core.Interfaces.Repositories;
+using PrintHub.Infrastructure.Repositories;
+using PrintHub.Infrastructure.Services.Etsy;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
