@@ -44,7 +44,7 @@ public class EtsyApiServiceTests
             ""token_type"": ""Bearer""
         }";
         
-        var httpClient = CreateMockHttpClient(new (HttpRequestMessage _, CancellationToken __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
@@ -81,7 +81,7 @@ public class EtsyApiServiceTests
             ""image_url"": ""https://example.com/image.jpg""
         }";
         
-        var httpClient = CreateMockHttpClient(new (HttpRequestMessage _, CancellationToken __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
@@ -120,7 +120,7 @@ public class EtsyApiServiceTests
             ""pagination"": { ""next"": null }
         }";
         
-        var httpClient = CreateMockHttpClient(new (HttpRequestMessage _, CancellationToken __) => new HttpResponseMessage(HttpStatusCode.OK)
+        var httpClient = CreateMockHttpClient((_, __) => new HttpResponseMessage(HttpStatusCode.OK)
         {
             Content = new StringContent(json, Encoding.UTF8, "application/json")
         });
