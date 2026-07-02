@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PrintHub.Core.Interfaces.Services;
@@ -35,8 +36,7 @@ public static class Phase1Api
         services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 250 * 1024 * 1024);
         services.Configure<EtsyOptions>(configuration.GetSection("Etsy"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
-        services.AddAuthentication(PrintHubAuthDefaults.Scheme)
-            .AddScheme<AuthenticationSchemeOptions, PrintHubHeaderAuthenticationHandler>(PrintHubAuthDefaults.Scheme, _ => { });
+        services.AddPrintHubAuthentication(configuration);
         services.AddAuthorization();
         services.AddHttpClient("Etsy", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<IPrintHubStore, PrintHubStore>();
@@ -200,6 +200,29 @@ public static class ApiResponseMapping
 
     public static ProductFileResponse ToResponse(this ProductFileRecord file) =>
         new(file.Id, file.ProductId, file.FileName, file.FileType, file.FileSizeBytes, file.VersionNumber, file.UploadedAt);
+}
+
+public static class PrintHubAuthentication
+{
+    public static IServiceCollection AddPrintHubAuthentication(this IServiceCollection services, IConfiguration configuration)
+    {
+        var authority = configuration["Authentication:Authority"];
+        var audience = configuration["Authentication:Audience"];
+        if (!string.IsNullOrWhiteSpace(authority) && !string.IsNullOrWhiteSpace(audience))
+        {
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.Authority = authority;
+                    options.Audience = audience;
+                });
+            return services;
+        }
+
+        services.AddAuthentication(PrintHubAuthDefaults.Scheme)
+            .AddScheme<AuthenticationSchemeOptions, PrintHubHeaderAuthenticationHandler>(PrintHubAuthDefaults.Scheme, _ => { });
+        return services;
+    }
 }
 
 public static class PrintHubAuthDefaults
