@@ -4,10 +4,13 @@ using PrintHub.Infrastructure.Repositories;
 using PrintHub.Infrastructure.Services.Etsy;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PrintHub.Core.Interfaces.Services;
@@ -32,6 +35,9 @@ public static class Phase1Api
         services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 250 * 1024 * 1024);
         services.Configure<EtsyOptions>(configuration.GetSection("Etsy"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
+        services.AddAuthentication(PrintHubAuthDefaults.Scheme)
+            .AddScheme<AuthenticationSchemeOptions, PrintHubHeaderAuthenticationHandler>(PrintHubAuthDefaults.Scheme, _ => { });
+        services.AddAuthorization();
         services.AddHttpClient("Etsy", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<IPrintHubStore, PrintHubStore>();
         services.AddSingleton<IPrintHubFileStorage, PrintHubFileStorage>();
@@ -81,16 +87,15 @@ public static class Phase1Api
             var result = await etsy.SyncListingsAsync(ct);
             return Results.Ok(result);
         });
-        app.MapGet("/api/products", async (IPrintHubStore store, CancellationToken ct) =>
+        app.MapGet("/api/products", async (IProductRepository products, CancellationToken ct) =>
         {
-            var state = await store.ReadAsync(ct);
-            return Results.Ok(new ProductsResponse(state.Products.OrderBy(p => p.Name)));
+            var importedProducts = await products.GetAllAsync(ct);
+            return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name).Select(p => p.ToRecord())));
         });
-        app.MapGet("/api/products/{productId:guid}", async (Guid productId, IPrintHubStore store, CancellationToken ct) =>
+        app.MapGet("/api/products/{productId:guid}", async (Guid productId, IProductRepository products, CancellationToken ct) =>
         {
-            var state = await store.ReadAsync(ct);
-            var product = state.Products.FirstOrDefault(p => p.Id == productId);
-            return product is null ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product);
+            var product = await products.GetByIdAsync(productId, ct);
+            return product is null ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product.ToRecord());
         });
         app.MapPost("/api/products/{productId:guid}/files", UploadProductFileAsync);
         app.MapGet("/api/products/{productId:guid}/files", async (Guid productId, IPrintHubStore store, CancellationToken ct) =>
@@ -109,7 +114,7 @@ public static class Phase1Api
         return app;
     }
 
-    private static async Task<IResult> UploadProductFileAsync(Guid productId, HttpRequest request, IPrintHubStore store, IPrintHubFileStorage fileStorage, CancellationToken ct)
+    private static async Task<IResult> UploadProductFileAsync(Guid productId, HttpRequest request, IPrintHubStore store, IProductRepository products, IPrintHubFileStorage fileStorage, CancellationToken ct)
     {
         if (!request.HasFormContentType) return Results.BadRequest(new { error = "Expected multipart form upload." });
         var form = await request.ReadFormAsync(ct);
@@ -118,8 +123,8 @@ public static class Phase1Api
         var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
         if (extension is not ".3mf" and not ".stl") return Results.BadRequest(new { error = "Only .3mf and .stl files are supported." });
 
+        if (await products.GetByIdAsync(productId, ct) is null) return Results.NotFound(new { error = "Product not found" });
         var state = await store.ReadAsync(ct);
-        if (state.Products.All(p => p.Id != productId)) return Results.NotFound(new { error = "Product not found" });
         await using var stream = file.OpenReadStream();
         var storedPath = await fileStorage.SaveAsync(productId, file.FileName, stream, ct);
         var productFile = new ProductFileRecord(Guid.NewGuid(), productId, file.FileName, extension, file.Length, state.Files.Count(f => f.ProductId == productId) + 1, storedPath, DateTimeOffset.UtcNow);
@@ -190,6 +195,38 @@ public static class ApiResponseMapping
     public static EtsyConnectionResponse ToResponse(this EtsyConnectionRecord connection) =>
         new(connection.ShopId, connection.ShopName, connection.ExpiresAt, connection.ConnectedAt, connection.LastSyncAt);
 
+    public static ProductRecord ToRecord(this PrintHub.Core.Entities.Product product) =>
+        new(product.Id, product.ExternalListingId ?? string.Empty, product.Name, product.Description, product.EtsyPrice, product.ImageUrl, product.IsActive, product.UpdatedAt);
+
     public static ProductFileResponse ToResponse(this ProductFileRecord file) =>
         new(file.Id, file.ProductId, file.FileName, file.FileType, file.FileSizeBytes, file.VersionNumber, file.UploadedAt);
+}
+
+public static class PrintHubAuthDefaults
+{
+    public const string Scheme = "PrintHubHeader";
+    public const string UserIdHeader = "X-User-Id";
+}
+
+public sealed class PrintHubHeaderAuthenticationHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        if (!Request.Headers.TryGetValue(PrintHubAuthDefaults.UserIdHeader, out var values)
+            || !Guid.TryParse(values.FirstOrDefault(), out var userId))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Name, userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, Scheme.Name);
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
+    }
 }

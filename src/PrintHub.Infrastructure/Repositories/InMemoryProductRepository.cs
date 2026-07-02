@@ -7,6 +7,11 @@ public class InMemoryProductRepository : IProductRepository
 {
     private readonly Dictionary<Guid, Product> _products = new();
 
+    public Task<IEnumerable<Product>> GetAllAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IEnumerable<Product>>(_products.Values.ToList());
+    }
+
     public Task<Product?> GetByExternalListingIdAsync(string externalListingId, Guid shopId, CancellationToken ct = default)
     {
         var product = _products.Values.FirstOrDefault(p => p.ExternalListingId == externalListingId && p.ShopId == shopId);
