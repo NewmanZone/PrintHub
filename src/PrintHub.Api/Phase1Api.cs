@@ -211,10 +211,19 @@ public static class PrintHubAuthDefaults
 public sealed class PrintHubHeaderAuthenticationHandler(
     IOptionsMonitor<AuthenticationSchemeOptions> options,
     ILoggerFactory logger,
-    UrlEncoder encoder) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+    UrlEncoder encoder,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
 {
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
+        var headerAuthEnabled = environment.IsDevelopment()
+            || string.Equals(configuration["Auth:AllowHeaderUserId"], "true", StringComparison.OrdinalIgnoreCase);
+        if (!headerAuthEnabled)
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
         if (!Request.Headers.TryGetValue(PrintHubAuthDefaults.UserIdHeader, out var values)
             || !Guid.TryParse(values.FirstOrDefault(), out var userId))
         {

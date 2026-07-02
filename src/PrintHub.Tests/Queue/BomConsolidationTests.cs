@@ -422,11 +422,6 @@ public class MockProductRepository : IProductRepository
 {
     private readonly Dictionary<Guid, Product> _products = new();
 
-    public Task<IEnumerable<Product>> GetAllAsync(CancellationToken ct = default)
-    {
-        return Task.FromResult<IEnumerable<Product>>(_products.Values.ToList());
-    }
-
     public Task<Product?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
         _products.TryGetValue(id, out var product);

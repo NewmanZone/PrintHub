@@ -4,7 +4,8 @@ namespace PrintHub.Core.Interfaces.Repositories;
 
 public interface IProductRepository
 {
-    Task<IEnumerable<Product>> GetAllAsync(CancellationToken ct = default);
+    Task<IEnumerable<Product>> GetAllAsync(CancellationToken ct = default) =>
+        Task.FromResult(Enumerable.Empty<Product>());
     Task<Product?> GetByIdAsync(Guid id, CancellationToken ct = default);
     Task<Product?> GetByIdWithPartsAsync(Guid id, CancellationToken ct = default);
     Task<Product?> GetByExternalListingIdAsync(string externalListingId, Guid shopId, CancellationToken ct = default);
