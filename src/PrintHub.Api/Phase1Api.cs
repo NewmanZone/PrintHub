@@ -55,7 +55,7 @@ public static class Phase1Api
             ClientId = configuration["Etsy:ClientId"] ?? string.Empty,
             ClientSecret = configuration["Etsy:ClientSecret"] ?? string.Empty,
             BaseUrl = configuration["Etsy:ApiBaseUrl"] ?? configuration["Etsy:BaseUrl"] ?? "https://openapi.etsy.com/v3/application",
-            AuthorizationUrl = configuration["Etsy:AuthorizationUrl"] ?? "https://www.etsy.com/oauth2/authorize",
+            AuthorizationUrl = configuration["Etsy:AuthorizeUrl"] ?? "https://www.etsy.com/oauth2/authorize",
             TokenUrl = configuration["Etsy:TokenUrl"] ?? "https://api.etsy.com/v3/public/oauth/token",
             Scopes = configuration["Etsy:Scopes"] ?? "listings_r shops_r",
             RedirectUri = configuration["Etsy:RedirectUri"] ?? string.Empty,
@@ -69,7 +69,7 @@ public static class Phase1Api
         app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "printhub-api" }));
         app.MapGet("/", () => Results.Ok(new { service = "PrintHub API", version = "1.0.0" }));
         app.MapGet("/api/me", () => Results.Ok(PrintHubDefaults.User));
-        app.MapGet("/api/etsy/connection", [Authorize] async (IPrintHubStore store, CancellationToken ct) =>
+        app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
         {
             var state = await store.ReadAsync(ct);
             return Results.Ok(state.EtsyConnection?.ToResponse());

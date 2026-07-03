@@ -52,6 +52,15 @@ public class ShopService : IShopService
         });
     }
 
+    private string GetRedirectUri()
+    {
+        if (!string.IsNullOrEmpty(_etsyConfig.RedirectUri))
+            return _etsyConfig.RedirectUri;
+        // Derive from ApiBaseUrl when config does not set RedirectUri
+        var baseUrl = _etsyConfig.BaseUrl?.TrimEnd('/');
+        return !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}/api/etsy/callback" : string.Empty;
+    }
+
     public async Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, string? returnUrl = null)
     {
         _logger.LogInformation("Initiating Etsy OAuth flow for user {UserId}", userId);
@@ -64,7 +73,7 @@ public class ShopService : IShopService
         _oauthStateStore.SaveState(state, userId.ToString(), returnUrl ?? string.Empty, TimeSpan.FromMinutes(10), codeVerifier);
         
         // Build authorization URL with PKCE challenge
-        var redirectUri = _etsyConfig.RedirectUri;
+        var redirectUri = GetRedirectUri();
         var codeChallenge = GenerateCodeChallenge(codeVerifier);
         var authUrl = await _etsyService.GetAuthorizationUrlAsync(state, redirectUri, codeChallenge);
         
@@ -87,7 +96,7 @@ public class ShopService : IShopService
         _oauthStateStore.DeleteState(state);
         
         // Exchange code for tokens (PKCE)
-        var tokenResponse = await _etsyService.ExchangeCodeForTokenAsync(code, _etsyConfig.RedirectUri, codeVerifier);
+        var tokenResponse = await _etsyService.ExchangeCodeForTokenAsync(code, GetRedirectUri(), codeVerifier);
         
         // Get shop info from Etsy
         var shopInfo = await _etsyService.GetShopInfoAsync(tokenResponse.AccessToken);

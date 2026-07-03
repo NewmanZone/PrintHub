@@ -86,15 +86,15 @@ public class EtsyApiService : IEtsyService
     {
         _logger.LogInformation("Etsy: Refreshing access token");
         
+        // PKCE public-client refresh: no client_secret, no Basic auth.
         var body = new Dictionary<string, string>
         {
             { "grant_type", "refresh_token" },
             { "refresh_token", refreshToken },
-            { "client_id", _config.ClientId },
-            { "client_secret", _config.ClientSecret }
+            { "client_id", _config.ClientId }
         };
 
-        var response = await SendTokenRequestAsync(body);
+        var response = await SendTokenRequestAsync(body, useBasicAuth: false);
         return response;
     }
 
