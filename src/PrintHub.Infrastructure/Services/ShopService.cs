@@ -13,6 +13,8 @@ public class ShopService : IShopService
 {
     private readonly IShopRepository _shopRepository;
     private readonly IProductRepository _productRepository;
+    private readonly IPartRepository _partRepository;
+    private readonly IPrintFileRepository _printFileRepository;
     private readonly IEtsyService _etsyService;
     private readonly ITokenEncryptionService _tokenEncryption;
     private readonly IOAuthStateStore _oauthStateStore;
@@ -22,6 +24,8 @@ public class ShopService : IShopService
     public ShopService(
         IShopRepository shopRepository,
         IProductRepository productRepository,
+        IPartRepository partRepository,
+        IPrintFileRepository printFileRepository,
         IEtsyService etsyService,
         ITokenEncryptionService tokenEncryption,
         IOAuthStateStore oauthStateStore,
@@ -30,6 +34,8 @@ public class ShopService : IShopService
     {
         _shopRepository = shopRepository;
         _productRepository = productRepository;
+        _partRepository = partRepository;
+        _printFileRepository = printFileRepository;
         _etsyService = etsyService;
         _tokenEncryption = tokenEncryption;
         _oauthStateStore = oauthStateStore;
@@ -165,9 +171,25 @@ public class ShopService : IShopService
         }
         
         // Clean up associated products before deleting the shop
-        var products = await _productRepository.GetByShopIdAsync(shopId);
+        var products = await _productRepository.GetByShopIdWithPartsAsync(shopId);
         foreach (var product in products)
         {
+            // Delete parts and their associated files for this product
+            if (product.ProductParts != null)
+            {
+                foreach (var productPart in product.ProductParts)
+                {
+                    if (productPart.Part != null)
+                    {
+                        var files = await _printFileRepository.GetByPartIdAsync(productPart.Part.Id);
+                        foreach (var file in files)
+                        {
+                            await _printFileRepository.DeleteAsync(file.Id);
+                        }
+                        await _partRepository.DeleteAsync(productPart.Part.Id);
+                    }
+                }
+            }
             await _productRepository.DeleteAsync(product.Id);
         }
         

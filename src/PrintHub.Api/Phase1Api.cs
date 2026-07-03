@@ -47,6 +47,8 @@ public static class Phase1Api
         services.AddScoped<IShopService, ShopService>();
         services.AddSingleton<IShopRepository, InMemoryShopRepository>();
         services.AddSingleton<IProductRepository, InMemoryProductRepository>();
+        services.AddSingleton<IPartRepository, InMemoryPartRepository>();
+        services.AddSingleton<IPrintFileRepository, InMemoryPrintFileRepository>();
         services.AddSingleton<ITokenEncryptionService>(sp => 
             new AesTokenEncryptionService(configuration["TokenEncryption:Key"] 
                 ?? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))));

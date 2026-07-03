@@ -15,6 +15,8 @@ public class ShopServiceTests
 {
     private readonly Mock<IShopRepository> _shopRepoMock;
     private readonly Mock<IProductRepository> _productRepoMock;
+    private readonly Mock<IPartRepository> _partRepoMock;
+    private readonly Mock<IPrintFileRepository> _printFileRepoMock;
     private readonly Mock<IEtsyService> _etsyServiceMock;
     private readonly Mock<ITokenEncryptionService> _encryptionMock;
     private readonly Mock<IOAuthStateStore> _stateStoreMock;
@@ -26,6 +28,8 @@ public class ShopServiceTests
     {
         _shopRepoMock = new Mock<IShopRepository>();
         _productRepoMock = new Mock<IProductRepository>();
+        _partRepoMock = new Mock<IPartRepository>();
+        _printFileRepoMock = new Mock<IPrintFileRepository>();
         _etsyServiceMock = new Mock<IEtsyService>();
         _encryptionMock = new Mock<ITokenEncryptionService>();
         _stateStoreMock = new Mock<IOAuthStateStore>();
@@ -38,6 +42,8 @@ public class ShopServiceTests
         _shopService = new ShopService(
             _shopRepoMock.Object,
             _productRepoMock.Object,
+            _partRepoMock.Object,
+            _printFileRepoMock.Object,
             _etsyServiceMock.Object,
             _encryptionMock.Object,
             _stateStoreMock.Object,

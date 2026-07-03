@@ -115,7 +115,15 @@ public class EtsyApiService : IEtsyService
         }
         
         var response = await _httpClient.SendAsync(request);
-        response.EnsureSuccessStatusCode();
+        if (!response.IsSuccessStatusCode)
+        {
+            var status = (int)response.StatusCode;
+            if (status == 401 || status == 400)
+            {
+                throw new EtsyTokenExpiredException("Etsy refresh token is expired, revoked, or invalid. Please reconnect the shop.");
+            }
+            response.EnsureSuccessStatusCode();
+        }
         
         var json = await response.Content.ReadAsStringAsync();
         var tokenData = JsonSerializer.Deserialize<EtsyTokenJson>(json, new JsonSerializerOptions

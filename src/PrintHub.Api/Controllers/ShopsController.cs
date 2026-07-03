@@ -66,6 +66,40 @@ public class ShopsController : ControllerBase
     }
 
     /// <summary>
+    /// Etsy OAuth callback (Etsy redirects here via GET with query params).
+    /// </summary>
+    [AllowAnonymous]
+    [HttpGet("etsy/callback")]
+    [ProducesResponseType(typeof(CallbackResponseDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EtsyCallbackGet([FromQuery] string code, [FromQuery] string state)
+    {
+        if (string.IsNullOrEmpty(code) || string.IsNullOrEmpty(state))
+        {
+            return BadRequest(new { error = "Code and state query parameters are required" });
+        }
+        
+        _logger.LogInformation("Handling Etsy GET callback with state {State}", state);
+        
+        try
+        {
+            var result = await _shopService.HandleEtsyCallbackAsync(code, state);
+            
+            return Ok(new CallbackResponseDto
+            {
+                ShopId = result.ShopId,
+                ShopName = result.ShopName,
+                Connected = result.Connected
+            });
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid callback state {State}", state);
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Etsy OAuth callback (handled by frontend redirect).
     /// </summary>
     [AllowAnonymous]
