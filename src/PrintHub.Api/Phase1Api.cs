@@ -1,8 +1,22 @@
+using PrintHub.Core.Interfaces;
 using PrintHub.Core.Interfaces.Repositories;
-using PrintHub.Core.Interfaces.Services;
 using PrintHub.Infrastructure.Repositories;
-using PrintHub.Infrastructure.Services;
 using PrintHub.Infrastructure.Services.Etsy;
+using System.Net.Http.Headers;
+using System.Security.Cryptography;
+using System.Security.Claims;
+using System.Text.Encodings.Web;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Serialization;
+using Azure.Storage.Blobs;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.Extensions.Options;
+using PrintHub.Core.Interfaces.Services;
+using PrintHub.Infrastructure.Services;
+using PrintHub.Infrastructure.Repositories;
 
 namespace PrintHub.Api;
 
@@ -10,6 +24,15 @@ public static class Phase1Api
 {
     public static IServiceCollection AddPrintHubPhase1(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddCors(options =>
+        {
+            options.AddDefaultPolicy(policy =>
+            {
+                var origins = configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
+                    ?? ["http://localhost:3000", "http://127.0.0.1:3000", "http://127.0.0.1:4175"];
+                policy.WithOrigins(origins.Select(origin => origin.TrimEnd('/')).ToArray()).AllowAnyHeader().AllowAnyMethod();
+            });
+        });
         services.Configure<FormOptions>(options => options.MultipartBodyLengthLimit = 250 * 1024 * 1024);
         services.Configure<EtsyOptions>(configuration.GetSection("Etsy"));
         services.Configure<StorageOptions>(configuration.GetSection("Storage"));
@@ -30,127 +53,215 @@ public static class Phase1Api
         {
             ClientId = configuration["Etsy:ClientId"] ?? string.Empty,
             ClientSecret = configuration["Etsy:ClientSecret"] ?? string.Empty,
-            BaseUrl = configuration["Etsy:BaseUrl"] ?? configuration["Etsy:ApiBaseUrl"] ?? "https://openapi.etsy.com/v3/application",
+            BaseUrl = configuration["Etsy:ApiBaseUrl"] ?? configuration["Etsy:BaseUrl"] ?? "https://openapi.etsy.com/v3/application",
             AuthorizationUrl = configuration["Etsy:AuthorizationUrl"] ?? "https://www.etsy.com/oauth2/authorize",
             TokenUrl = configuration["Etsy:TokenUrl"] ?? "https://api.etsy.com/v3/public/oauth/token",
-            RedirectUri = configuration["Etsy:RedirectUri"] ?? string.Empty,
             Scopes = configuration["Etsy:Scopes"] ?? "listings_r shops_r",
-            UseFakeProvider = bool.TryParse(configuration["Etsy:UseFakeProvider"], out var fake) && fake
+            RedirectUri = configuration["Etsy:RedirectUri"] ?? string.Empty,
         });
-        services.AddSingleton<IEtsyService>(sp =>
-        {
-            var config = sp.GetRequiredService<EtsyConfiguration>();
-            if (config.UseFakeProvider)
-                return new FakeEtsyService();
-            var httpClientFactory = sp.GetRequiredService<IHttpClientFactory>();
-            var httpClient = httpClientFactory.CreateClient("Etsy");
-            var logger = sp.GetRequiredService<ILogger<EtsyApiService>>();
-            return new EtsyApiService(httpClient, config, logger);
-        });
-
+        services.AddHttpClient<IEtsyService, EtsyApiService>();
         return services;
     }
 
     public static IEndpointRouteBuilder MapPrintHubPhase1Api(this IEndpointRouteBuilder app)
     {
-        app.MapHealthChecks("/health");
-        app.MapGet("/", () => "PrintHub API");
-
-        // Phase 1: OAuth + Etsy integration
-        app.MapGet("/api/me", async (IIdentityService identity, CancellationToken ct) =>
+        app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "printhub-api" }));
+        app.MapGet("/", () => Results.Ok(new { service = "PrintHub API", version = "1.0.0" }));
+        app.MapGet("/api/me", () => Results.Ok(PrintHubDefaults.User));
+        app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
         {
-            var user = await identity.GetCurrentUserAsync(ct);
-            return user is null ? Results.Unauthorized() : Results.Ok(user);
-        }).RequireAuthorization();
-
-        app.MapGet("/api/etsy/connection", [Authorize] async (IShopService shops, CancellationToken ct) =>
-        {
-            var shopsList = await shops.GetShopsAsync(Guid.Empty, ct);
-            return Results.Ok(new { connected = shopsList.Any(), shops = shopsList });
+            var state = await store.ReadAsync(ct);
+            return Results.Ok(state.EtsyConnection?.ToResponse());
         });
-
-        app.MapPost("/api/etsy/connect", [Authorize] async (IShopService shops, HttpContext ctx, CancellationToken ct) =>
+        app.MapGet("/api/etsy/connect", async (HttpRequest request, EtsyIntegrationService etsy, string? returnUrl, CancellationToken ct) =>
         {
-            var userId = GetUserId(ctx.User);
-            if (userId == Guid.Empty) return Results.Unauthorized();
-            var returnUrl = ctx.Request.Query["returnUrl"].FirstOrDefault() ?? "/";
-            var result = await shops.InitiateEtsyConnectAsync(userId, returnUrl, ct);
-            return Results.Ok(new { authUrl = result.AuthUrl });
+            var authUrl = await etsy.CreateAuthorizationUrlAsync(GetApiBaseUrl(request), returnUrl, ct);
+            return Results.Ok(new { authUrl });
         });
-
-        app.MapGet("/api/etsy/callback", async (IShopService shops, HttpContext ctx, CancellationToken ct) =>
+        app.MapGet("/api/etsy/callback", async (HttpRequest request, EtsyIntegrationService etsy, string code, string state, CancellationToken ct) =>
         {
-            var code = ctx.Request.Query["code"].FirstOrDefault() ?? "";
-            var state = ctx.Request.Query["state"].FirstOrDefault() ?? "";
-            var result = await shops.HandleEtsyCallbackAsync(code, state, ct);
-            return result.Connected ? Results.Ok(result) : Results.BadRequest(result);
+            var result = await etsy.CompleteOAuthAsync(GetApiBaseUrl(request), code, state, ct);
+            return result.Success
+                ? Results.Redirect(result.ReturnUrl ?? "/settings?etsy=connected")
+                : Results.BadRequest(result);
         });
-
-        app.MapPost("/api/etsy/sync", [Authorize] async (EtsyIntegrationService etsy, CancellationToken ct) =>
+        app.MapPost("/api/etsy/sync", async (EtsyIntegrationService etsy, CancellationToken ct) =>
         {
             var result = await etsy.SyncListingsAsync(ct);
             return Results.Ok(result);
         });
-
-        app.MapGet("/api/products", [Authorize] async (
-            IProductRepository products,
-            IShopRepository shops,
-            HttpContext ctx,
-            CancellationToken ct) =>
+        app.MapGet("/api/products", async (IProductRepository products, CancellationToken ct) =>
         {
-            var userId = GetUserId(ctx.User);
-            if (userId == Guid.Empty) return Results.Unauthorized();
-            var userShops = await shops.GetByUserIdAsync(userId, ct);
-            var shopIds = userShops.Select(s => s.Id).ToHashSet();
             var importedProducts = await products.GetAllAsync(ct);
-            var filtered = importedProducts
-                .Where(p => shopIds.Contains(p.ShopId))
-                .OrderBy(p => p.Name)
-                .Select(p => p.ToRecord());
-            return Results.Ok(new ProductsResponse(filtered));
+            return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name).Select(p => p.ToRecord())));
         });
-
-        app.MapGet("/api/products/{productId:guid}", [Authorize] async (
-            IProductRepository products,
-            IShopRepository shops,
-            Guid productId,
-            HttpContext ctx,
-            CancellationToken ct) =>
+        app.MapGet("/api/products/{productId:guid}", async (Guid productId, IProductRepository products, CancellationToken ct) =>
         {
-            var userId = GetUserId(ctx.User);
-            if (userId == Guid.Empty) return Results.Unauthorized();
-            var userShops = await shops.GetByUserIdAsync(userId, ct);
-            var shopIds = userShops.Select(s => s.Id).ToHashSet();
             var product = await products.GetByIdAsync(productId, ct);
-            if (product == null) return Results.NotFound();
-            if (!shopIds.Contains(product.ShopId)) return Results.Forbid();
-            return Results.Ok(product.ToRecord());
+            return product is null ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product.ToRecord());
         });
-
-        app.MapPost("/api/products/{productId:guid}/files", [Authorize] async (Guid productId, IFormFile file, IPrintHubFileStorage storage, CancellationToken ct) =>
+        app.MapPost("/api/products/{productId:guid}/files", UploadProductFileAsync);
+        app.MapGet("/api/products/{productId:guid}/files", async (Guid productId, IPrintHubStore store, CancellationToken ct) =>
         {
-            await using var stream = file.OpenReadStream();
-            var result = await storage.UploadAsync(productId, file.FileName, stream, ct);
-            return Results.Ok(new { fileUrl = result });
+            var state = await store.ReadAsync(ct);
+            return Results.Ok(new ProductFilesResponse(state.Files.Where(f => f.ProductId == productId).OrderByDescending(f => f.UploadedAt).Select(f => f.ToResponse())));
         });
-
+        app.MapGet("/api/files/{fileId:guid}/download", async (Guid fileId, IPrintHubStore store, IPrintHubFileStorage fileStorage, CancellationToken ct) =>
+        {
+            var state = await store.ReadAsync(ct);
+            var file = state.Files.FirstOrDefault(f => f.Id == fileId);
+            if (file is null) return Results.NotFound(new { error = "File not found" });
+            var stream = await fileStorage.OpenReadAsync(file.StoragePath, ct);
+            return Results.File(stream, "application/octet-stream", file.FileName);
+        });
         return app;
     }
 
-    private static Guid GetUserId(ClaimsPrincipal user)
+    private static async Task<IResult> UploadProductFileAsync(Guid productId, HttpRequest request, IPrintHubStore store, IProductRepository products, IPrintHubFileStorage fileStorage, CancellationToken ct)
     {
-        var nameId = user.FindFirst("http://schemas.xmlsoap.org/ws/2005/05/identity/claims/nameidentifier")?.Value
-            ?? user.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-        return nameId is not null && Guid.TryParse(nameId, out var id) ? id : Guid.Empty;
+        if (!request.HasFormContentType) return Results.BadRequest(new { error = "Expected multipart form upload." });
+        var form = await request.ReadFormAsync(ct);
+        var file = form.Files.GetFile("file");
+        if (file is null || file.Length == 0) return Results.BadRequest(new { error = "A non-empty file field named 'file' is required." });
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension is not ".3mf" and not ".stl") return Results.BadRequest(new { error = "Only .3mf and .stl files are supported." });
+
+        if (await products.GetByIdAsync(productId, ct) is null) return Results.NotFound(new { error = "Product not found" });
+        var state = await store.ReadAsync(ct);
+        await using var stream = file.OpenReadStream();
+        var storedPath = await fileStorage.SaveAsync(productId, file.FileName, stream, ct);
+        var productFile = new ProductFileRecord(Guid.NewGuid(), productId, file.FileName, extension, file.Length, state.Files.Count(f => f.ProductId == productId) + 1, storedPath, DateTimeOffset.UtcNow);
+        state.Files.Add(productFile);
+        await store.WriteAsync(state, ct);
+        return Results.Created($"/api/products/{productId}/files/{productFile.Id}", productFile.ToResponse());
     }
 
-    // --- DTOs ---
-    public record ProductsResponse(IEnumerable<ProductRecord> Products);
-    public record ProductRecord(Guid Id, string Name, string? Description, string? ImageUrl, decimal EtsyPrice, bool IsActive);
+    private static string GetApiBaseUrl(HttpRequest request)
+    {
+        var configured = request.HttpContext.RequestServices.GetRequiredService<IConfiguration>()["PublicApiBaseUrl"];
+        return !string.IsNullOrWhiteSpace(configured) ? configured.TrimEnd('/') : $"{request.Scheme}://{request.Host}".TrimEnd('/');
+    }
 }
 
-public static class ProductExtensions
+public sealed record CurrentUserResponse(Guid UserId, Guid WorkspaceId, string DisplayName, string Email);
+
+public static class PrintHubDefaults
 {
-    public static Phase1Api.ProductRecord ToRecord(this Product p) =>
-        new(p.Id, p.Name, p.Description, p.ImageUrl, p.EtsyPrice, p.IsActive);
+    public static readonly CurrentUserResponse User = new(
+        Guid.Parse("11111111-1111-1111-1111-111111111111"),
+        Guid.Parse("22222222-2222-2222-2222-222222222222"),
+        "NewmanZone",
+        "mln330@users.noreply.github.com");
+}
+
+public sealed record EtsyOptions
+{
+    public string ClientId { get; init; } = "";
+    public string ClientSecret { get; init; } = "";
+    public string Scopes { get; init; } = "listings_r shops_r transactions_r";
+    public string AuthorizeUrl { get; init; } = "https://www.etsy.com/oauth/connect";
+    public string TokenUrl { get; init; } = "https://api.etsy.com/v3/public/oauth/token";
+    public string ApiBaseUrl { get; init; } = "https://api.etsy.com/v3/application";
+    public string? RedirectUri { get; init; }
+    public string? FrontendReturnUrl { get; init; }
+    public string StateSigningSecret { get; init; } = "";
+}
+
+public sealed record StorageOptions
+{
+    public string? ConnectionString { get; init; }
+    public string ContainerName { get; init; } = "printhub";
+    public string LocalPath { get; init; } = "App_Data";
+}
+
+public sealed record PrintHubState
+{
+    public EtsyConnectionRecord? EtsyConnection { get; set; }
+    public List<OAuthStateRecord> OAuthStates { get; set; } = [];
+    public List<ProductRecord> Products { get; set; } = [];
+    public List<ProductFileRecord> Files { get; set; } = [];
+}
+
+public sealed record OAuthStateRecord(string State, string CodeVerifier, string ReturnUrl, DateTimeOffset ExpiresAt);
+public sealed record EtsyConnectionRecord(string ShopId, string ShopName, string AccessToken, string RefreshToken, DateTimeOffset ExpiresAt, DateTimeOffset ConnectedAt, DateTimeOffset? LastSyncAt);
+public sealed record ProductRecord(Guid Id, string ExternalListingId, string Name, string? Description, decimal? EtsyPrice, string? ImageUrl, bool IsActive, DateTimeOffset UpdatedAt);
+public sealed record ProductFileRecord(Guid Id, Guid ProductId, string FileName, string FileType, long FileSizeBytes, int VersionNumber, string StoragePath, DateTimeOffset UploadedAt);
+public sealed record EtsyConnectionResponse(string ShopId, string ShopName, DateTimeOffset ExpiresAt, DateTimeOffset ConnectedAt, DateTimeOffset? LastSyncAt);
+public sealed record ProductFileResponse(Guid Id, Guid ProductId, string FileName, string FileType, long FileSizeBytes, int VersionNumber, DateTimeOffset UploadedAt);
+public sealed record ProductsResponse(IEnumerable<ProductRecord> Products);
+public sealed record ProductFilesResponse(IEnumerable<ProductFileResponse> Files);
+public sealed record EtsySyncResponse(int Imported, int Updated, int Total, DateTimeOffset SyncedAt);
+public sealed record EtsyOAuthResult(bool Success, string? Error, string? ReturnUrl);
+
+public static class ApiResponseMapping
+{
+    public static EtsyConnectionResponse ToResponse(this EtsyConnectionRecord connection) =>
+        new(connection.ShopId, connection.ShopName, connection.ExpiresAt, connection.ConnectedAt, connection.LastSyncAt);
+
+    public static ProductRecord ToRecord(this PrintHub.Core.Entities.Product product) =>
+        new(product.Id, product.ExternalListingId ?? string.Empty, product.Name, product.Description, product.EtsyPrice, product.ImageUrl, product.IsActive, product.UpdatedAt);
+
+    public static ProductFileResponse ToResponse(this ProductFileRecord file) =>
+        new(file.Id, file.ProductId, file.FileName, file.FileType, file.FileSizeBytes, file.VersionNumber, file.UploadedAt);
+}
+
+public static class PrintHubAuthentication
+{
+    public static IServiceCollection AddPrintHubAuthentication(this IServiceCollection services, IConfiguration configuration)
+    {
+        var authority = configuration["Authentication:Authority"];
+        var audience = configuration["Authentication:Audience"];
+        if (!string.IsNullOrWhiteSpace(authority) && !string.IsNullOrWhiteSpace(audience))
+        {
+            services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+                .AddJwtBearer(options =>
+                {
+                    options.Authority = authority;
+                    options.Audience = audience;
+                });
+            return services;
+        }
+
+        services.AddAuthentication(PrintHubAuthDefaults.Scheme)
+            .AddScheme<AuthenticationSchemeOptions, PrintHubHeaderAuthenticationHandler>(PrintHubAuthDefaults.Scheme, _ => { });
+        return services;
+    }
+}
+
+public static class PrintHubAuthDefaults
+{
+    public const string Scheme = "PrintHubHeader";
+    public const string UserIdHeader = "X-User-Id";
+}
+
+public sealed class PrintHubHeaderAuthenticationHandler(
+    IOptionsMonitor<AuthenticationSchemeOptions> options,
+    ILoggerFactory logger,
+    UrlEncoder encoder,
+    IConfiguration configuration,
+    IWebHostEnvironment environment) : AuthenticationHandler<AuthenticationSchemeOptions>(options, logger, encoder)
+{
+    protected override Task<AuthenticateResult> HandleAuthenticateAsync()
+    {
+        var headerAuthEnabled = environment.IsDevelopment()
+            || string.Equals(configuration["Auth:AllowHeaderUserId"], "true", StringComparison.OrdinalIgnoreCase);
+        if (!headerAuthEnabled)
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        if (!Request.Headers.TryGetValue(PrintHubAuthDefaults.UserIdHeader, out var values)
+            || !Guid.TryParse(values.FirstOrDefault(), out var userId))
+        {
+            return Task.FromResult(AuthenticateResult.NoResult());
+        }
+
+        var claims = new[]
+        {
+            new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
+            new Claim(ClaimTypes.Name, userId.ToString())
+        };
+        var identity = new ClaimsIdentity(claims, Scheme.Name);
+        return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));
+    }
 }
