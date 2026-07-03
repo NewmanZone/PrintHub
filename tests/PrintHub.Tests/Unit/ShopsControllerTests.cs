@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.Security.Claims;
 using FluentAssertions;
 using Microsoft.AspNetCore.Http;
@@ -195,16 +196,16 @@ public class ShopsControllerTests
         var userId = GetUserId();
         var shopId = Guid.NewGuid();
         _shopServiceMock.Setup(s => s.InitiateSyncAsync(userId, shopId))
-            .ReturnsAsync(new SyncResponse { JobId = "job_123", Status = "Processing" });
+            .ReturnsAsync(new SyncResponse { JobId = "job_123", Status = "Completed" });
 
         // Act
         var result = await _controller.Sync(shopId);
 
         // Assert
-        var acceptedResult = result.Should().BeOfType<AcceptedResult>().Subject;
-        var response = acceptedResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<SyncResponseDto>().Subject;
         response.JobId.Should().Be("job_123");
-        response.Status.Should().Be("Processing");
+        response.Status.Should().Be("Completed");
     }
 
     [Fact]
@@ -254,5 +255,51 @@ public class ShopsControllerTests
         // Assert
         var statusResult = result.Should().BeOfType<ObjectResult>().Subject;
         statusResult.StatusCode.Should().Be(429);
+    }
+
+    private ShopsController CreateController(IEnumerable<Claim>? claims = null)
+    {
+        var controller = new ShopsController(_shopServiceMock.Object, _loggerMock.Object);
+        var principalClaims = claims ?? Array.Empty<Claim>();
+        var identity = new ClaimsIdentity(principalClaims, claims == null ? null : "Test");
+        var principal = new ClaimsPrincipal(identity);
+        controller.ControllerContext = new ControllerContext
+        {
+            HttpContext = new DefaultHttpContext { User = principal }
+        };
+        return controller;
+    }
+
+    [Fact]
+    public async Task EtsyCallback_AllowsAnonymousUser()
+    {
+        // Arrange
+        var anonymousController = CreateController();
+        var shopId = Guid.NewGuid();
+        _shopServiceMock.Setup(s => s.HandleEtsyCallbackAsync("code", "state"))
+            .ReturnsAsync(new CallbackResponse { ShopId = shopId, ShopName = "Test Shop", Connected = true });
+
+        var request = new EtsyCallbackRequest { Code = "code", State = "state" };
+
+        // Act
+        var result = await anonymousController.EtsyCallback(request);
+
+        // Assert
+        var okResult = result.Should().BeOfType<OkObjectResult>().Subject;
+        var response = okResult.Value.Should().BeOfType<CallbackResponseDto>().Subject;
+        response.Connected.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetShops_MissingNameIdentifierClaim_ReturnsUnauthorized()
+    {
+        // Arrange
+        var unauthenticatedController = CreateController(new List<Claim>());
+
+        // Act
+        var result = await unauthenticatedController.GetShops();
+
+        // Assert
+        result.Should().BeOfType<UnauthorizedResult>();
     }
 }

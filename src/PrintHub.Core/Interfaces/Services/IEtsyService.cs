@@ -1,56 +1,54 @@
-using PrintHub.Core.Entities;
-
 namespace PrintHub.Core.Interfaces.Services;
 
 /// <summary>
-/// Service for interacting with Etsy API.
+/// Service for interacting with Etsy OAuth and API.
 /// </summary>
 public interface IEtsyService
 {
     /// <summary>
-    /// Gets the URL to initiate Etsy OAuth flow.
+    /// Builds the Etsy OAuth authorization URL for the given state and redirect URI.
     /// </summary>
-    Task<string> GetAuthorizationUrlAsync(string state, string redirectUri);
-    
+    Task<string> GetAuthorizationUrlAsync(string state, string redirectUri, string? codeChallenge = null);
+
     /// <summary>
-    /// Exchanges authorization code for tokens.
+    /// Exchanges the OAuth authorization code for access/refresh tokens.
     /// </summary>
-    Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri);
-    
+    Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri, string? codeVerifier = null);
+
     /// <summary>
-    /// Refreshes an expired access token.
+    /// Refreshes an expired access token using the refresh token.
     /// </summary>
     Task<EtsyTokenResponse> RefreshTokenAsync(string refreshToken);
-    
+
     /// <summary>
-    /// Gets shop information from Etsy.
+    /// Retrieves Etsy shop information for the authenticated user.
     /// </summary>
     Task<EtsyShopInfo> GetShopInfoAsync(string accessToken);
-    
+
     /// <summary>
-    /// Gets all listings for a shop from Etsy.
+    /// Retrieves active listings for the given Etsy shop.
     /// </summary>
     Task<IEnumerable<EtsyListing>> GetListingsAsync(string accessToken, string shopId);
-    
+
     /// <summary>
-    /// Validates that an access token is still valid.
+    /// Checks whether the supplied access token can still be used with Etsy.
     /// </summary>
     Task<bool> ValidateTokenAsync(string accessToken);
 }
 
 /// <summary>
-/// Response from Etsy token exchange.
+/// Etsy OAuth token response.
 /// </summary>
 public class EtsyTokenResponse
 {
     public string AccessToken { get; set; } = string.Empty;
-    public string RefreshToken { get; set; } = string.Empty;
+    public string? RefreshToken { get; set; }
     public int ExpiresIn { get; set; }
-    public string TokenType { get; set; } = string.Empty;
+    public string? TokenType { get; set; }
 }
 
 /// <summary>
-/// Shop information from Etsy.
+/// Etsy shop information.
 /// </summary>
 public class EtsyShopInfo
 {
@@ -61,7 +59,7 @@ public class EtsyShopInfo
 }
 
 /// <summary>
-/// Listing from Etsy.
+/// Etsy listing summary.
 /// </summary>
 public class EtsyListing
 {
@@ -69,9 +67,11 @@ public class EtsyListing
     public string Title { get; set; } = string.Empty;
     public string? Description { get; set; }
     public decimal Price { get; set; }
+    public string State { get; set; } = string.Empty;
+    public DateTime CreatedAt { get; set; }
+    public DateTime UpdatedAt { get; set; }
     public string? ImageUrl { get; set; }
     public bool IsActive { get; set; }
-    public DateTime? CreatedAt { get; set; }
-    public DateTime? UpdatedAt { get; set; }
-    public string? State { get; set; }
+    public string? MainImageUrl { get; set; }
+    public List<string> ImageUrls { get; set; } = new();
 }
