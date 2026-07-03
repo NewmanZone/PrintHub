@@ -164,6 +164,13 @@ public class ShopService : IShopService
             throw new UnauthorizedAccessException("You do not have permission to delete this shop");
         }
         
+        // Clean up associated products before deleting the shop
+        var products = await _productRepository.GetByShopIdAsync(shopId);
+        foreach (var product in products)
+        {
+            await _productRepository.DeleteAsync(product.Id);
+        }
+        
         await _shopRepository.DeleteAsync(shopId);
     }
 
