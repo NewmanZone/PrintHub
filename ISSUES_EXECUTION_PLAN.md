@@ -2,7 +2,7 @@
 
 ## Updated By OpenClaw PM
 
-Generated: 2026-07-03T06:24:55Z  
+Generated: 2026-07-03T14:24:17Z  
 Repo: NewmanZone/PrintHub  
 Planning document: `ISSUES_EXECUTION_PLAN.md`  
 Current planning source: `origin/pm/docs-plan:ISSUES_EXECUTION_PLAN.md`
@@ -24,35 +24,39 @@ Bambu, OctoEverywhere, direct printer submission, live printer status, automatic
 
 ## Current Implementation Status
 
-The repo documentation describes a focused Phase 1 product: OAuth-only shared workspace, Etsy shop connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal.
+The documentation describes a focused Phase 1 product: OAuth-only auth, shared workspaces, Etsy connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal, but the backend foundation has moved forward since the original baseline review.
 
 Current repo state from the latest PM snapshot:
 
 - Default branch: `main`
+- Latest observed `main` head: `1f011947b757859bb9af405a57d48fd650460611`
 - Open PRs:
   - `#31 [PM Docs] Update PrintHub planning docs`
     - Branch: `pm/docs-plan`
     - Draft: no
     - Merge state: clean
     - Purpose: documentation/planning lane
-  - `#30 Draft: Add Etsy shop OAuth and product sync foundation`
-    - Branch: `feat/issue-9-queue-planning`
-    - Draft: no
-    - Merge state: clean
-    - Latest observed head: `b28ff55d2f3e9cee3b9d7d7fef8799431e57be8e`
-    - Latest observed CI: passing
-- Open branches:
+- Recently merged or no longer open:
+  - PR `#30`
+  - PR `#32`
+  - PR `#33`
+- Latest observed `main` CI:
+  - `CI`: success on `1f011947b757859bb9af405a57d48fd650460611`
+  - `Deploy to Azure`: in progress on `1f011947b757859bb9af405a57d48fd650460611`
+  - Prior Azure deploy attempts on `main` failed and need follow-up if deployment is in active scope.
+- Open branches observed:
+  - `codex/pm-newmanzone__printhub-20260703t063416z`
+  - `codex/pm-newmanzone__printhub-20260703t090148z`
   - `feat/issue-9-queue-planning`
-  - `pm/docs-plan`
   - `fix/issue-2`
   - `fix/issue-3`
   - `fix/issue-14`
   - `main`
+  - `pm/docs-plan`
 - Open GitHub issues `#5-#19` remain stale relative to this plan.
-- Latest branch-health scan reported no structural path blockers for PR #30 changed files.
-- Recent CI on PR #30 has multiple successful runs after one failure, with the latest run passing.
+- No current branch/path structural blocker is called out in the latest supplied state, but .NET project naming drift remains a planning and agent-routing risk.
 
-Implemented or partially implemented on PR #30, not yet merged to `main`:
+Implemented or partially implemented on `main` after PR `#30`, PR `#32`, and PR `#33` merged:
 
 - Etsy shop/service plumbing.
 - Etsy API service and fake Etsy service.
@@ -64,7 +68,7 @@ Implemented or partially implemented on PR #30, not yet merged to `main`:
 - Product sync foundation.
 - Dependency injection wiring and coverage.
 - Tests for Etsy API service, shop service, shops controller, auth pipeline behavior, token encryption, and DI resolution.
-- Project/runtime support changes, including `global.json`, project files, and API Dockerfile updates.
+- Project/runtime support changes including `global.json`, project files, API Dockerfile updates, and related CI/deploy plumbing.
 
 Not yet complete for the documented Phase 1 end goal:
 
@@ -73,7 +77,7 @@ Not yet complete for the documented Phase 1 end goal:
 - Contributor invite flow.
 - Persistent Phase 1 domain model across users, workspaces, shops, products, parts, files, orders, and bundles.
 - Durable persistence beyond in-memory foundations where Phase 1 requires it.
-- Etsy listing sync and Etsy order sync as a full workspace-scoped workflow.
+- Full Etsy listing sync and Etsy order sync as a workspace-scoped workflow.
 - File storage, upload, versioning, signed/private download, deletion, and purge controls.
 - Product-to-part-to-current-file mapping APIs.
 - Preparation bundle generation, manifest creation, download, completion marking, and audit trail.
@@ -84,94 +88,122 @@ Not yet complete for the documented Phase 1 end goal:
 
 | Area | Classification | Current Status | Required Action |
 | --- | --- | --- | --- |
-| Phase 1 excludes Bambu, OctoEverywhere, direct print submission, live printer status, and automatic printer queues. | Intended requirement | README and design docs now point Phase 1 toward manual bundles. | Keep this constraint in every issue and PR review. Do not accept printer execution work into Phase 1. |
+| Phase 1 excludes Bambu, OctoEverywhere, direct print submission, live printer status, and automatic printer queues. | Intended requirement | README and design docs now point Phase 1 toward manual bundles. | Keep this constraint in every issue, PR, and review. Do not accept printer execution work into Phase 1. |
 | OAuth-only authentication with no PrintHub password registration/login/reset. | Intended requirement | Documented in README, API design, data model, and security docs. | Implement JWT validation, `/auth/me`, and profile bootstrap. Reject password-based auth additions. |
 | Shared workspace with contributors is central to Phase 1. | Intended requirement | Documented, but not implemented yet. | Prioritize workspace model and authorization before dependent domain work. |
 | Source STL/3MF retention by default with user-controlled delete/purge. | Intended requirement | Documented, but not implemented yet. | Include retention, delete, purge, and signed/private download behavior in file-storage acceptance criteria. |
-| PR #30 title/body were previously broader than its implementation. | Unintended divergence | Title now better reflects Etsy shop OAuth and product sync foundation, but body/scope still need final review before merge. | Confirm PR #30 title/body match changed paths and Phase 1 non-goals. |
+| PR `#30`, `#32`, and `#33` are merged but the planning doc still described them as pending blockers. | Unintended divergence | Current planning source is stale. | Merge PR `#31` or update it so this plan becomes current on `main`. |
 | Open issues `#5-#19` still reflect older broad scope and include printer/mock UI/inventory work. | Unintended divergence | GitHub issue queue is stale relative to the documented Phase 1 issue queue. | Replace, close, or retarget stale issues after owner approval. |
-| `DESIGN/dotnet-structure.md` describes `PrintHub.API` and split test projects, while observed repo structure includes `src/PrintHub.Api` and `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
+| `DESIGN/dotnet-structure.md` describes `PrintHub.API` and split test projects, while observed structure includes `src/PrintHub.Api` and `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
 | README architecture block is empty/truncated. | Unintended divergence | README lacks a useful architecture diagram. | Fill or remove the empty block during docs cleanup. |
-| Historical branches `fix/issue-2`, `fix/issue-3`, and `fix/issue-14` remain open. | Needs owner decision | They may be obsolete, but branch deletion needs approval. | Ask owner whether to inspect and prune after confirming no useful work remains. |
-| `Viewer` role appears in data model guidance but may be optional for Phase 1. | Needs owner decision | Owner/contributor are clearly required; viewer may add extra scope. | Decide whether Phase 1 includes Viewer or defers it. |
+| Azure deployment workflow has recent failures while CI passes. | Needs owner decision | Latest deploy is in progress; earlier deploy runs failed. | Decide whether Azure deploy is an active Phase 1 gate now or later release hardening. |
+| Historical branches `feat/issue-9-queue-planning`, `fix/issue-2`, `fix/issue-3`, `fix/issue-14`, and PM branches remain open. | Needs owner decision | They may be obsolete after merges, but branch deletion needs approval. | Inspect and prune only after owner approval. |
+| `Viewer` role appears in data model guidance but may be optional for Phase 1. | Needs owner decision | Owner and contributor are clearly required; viewer may add extra scope. | Decide whether Phase 1 includes Viewer or defers it. |
 
 ## Active Blockers And Gates
 
 Normal feature work should start only after these gates are handled or explicitly waived.
 
-- [ ] Merge or supersede PR #31 so the repo-owned plan is current on `main`.
-  - Confirm PR #31 changes only planning/documentation files.
+- [ ] Merge or supersede PR `#31` so the repo-owned plan is current on `main`.
+  - Confirm PR `#31` changes only planning/documentation files.
   - Confirm the PR body describes the documentation-only scope.
-  - Confirm checks are green or that docs-only checks are not required.
-  - Do not merge without owner approval if the repo mode still requires owner approval.
+  - Confirm checks are green or docs-only checks are not required.
+  - Do not merge without owner approval if owner-approval mode remains active.
 
-- [ ] Complete PR #30 owner-decision gate.
-  - Confirm the diff is intentionally limited to Etsy shop OAuth/product sync/backend foundation work.
-  - Confirm title/body match actual changed paths and do not imply full queue or bundle completion.
-  - Confirm no temporary artifacts remain.
-  - Confirm no Phase 1 boundary violations: no Bambu, OctoEverywhere, direct printer submission, live printer status, or automatic printer queue dependency.
-  - Confirm `dotnet test PrintHub.sln` and `pytest` pass locally or document why a check is not applicable.
-  - Confirm latest GitHub CI remains green on the current PR head.
-  - Owner approval is required before merging if owner-approval mode remains active.
+- [ ] Reconcile the stale issue queue.
+  - Stale issues `#5-#19` should be closed, retargeted, or replaced with small Phase 1 issues.
+  - Owner approval is required before rewriting the live issue queue.
+  - Printer, inventory, and broad mock-frontend issues should move to later-phase tracking or be closed as superseded.
 
 - [ ] Resolve .NET structure naming drift.
   - Choose canonical API project casing: current implementation appears to use `src/PrintHub.Api`, while some docs mention `src/PrintHub.API`.
   - Decide whether `tests/PrintHub.Tests` remains the Phase 1 test project or whether split test projects are required later.
   - Update docs and solution/project references to one convention.
 
-- [ ] Reconcile GitHub issues with this plan.
-  - Stale issues `#5-#19` should be closed, retargeted, or replaced with small Phase 1 issues.
-  - Owner approval is required before rewriting the live issue queue.
-  - Printer, inventory, and broad mock-frontend issues should move to later-phase tracking or be closed as superseded.
+- [ ] Triage Azure deploy state.
+  - Confirm whether latest `Deploy to Azure` run on `main` completed successfully.
+  - If it failed, capture the failing job/step and decide whether deployment is in scope for the next cycle.
+  - Keep Azure release hardening out of feature work unless explicitly approved.
+
+- [ ] Inspect old branches before pruning.
+  - `feat/issue-9-queue-planning`
+  - `fix/issue-2`
+  - `fix/issue-3`
+  - `fix/issue-14`
+  - `codex/pm-newmanzone__printhub-20260703t063416z`
+  - `codex/pm-newmanzone__printhub-20260703t090148z`
 
 ## Immediate Next PM Focus
 
 Next 2-hour cycle:
 
-- [ ] Land or prepare owner-ready completion for PR #31.
-- [ ] Re-check PR #31 changed files and checks; keep it documentation-only.
-- [ ] Re-check PR #30 head SHA, CI, title/body, and changed files after the latest commits.
-- [ ] Produce a concise owner recommendation for PR #30: merge, hold, split, or request changes.
+- [ ] Land or prepare owner-ready completion for PR `#31`.
+- [ ] Re-check PR `#31` changed files and checks; keep it documentation-only.
+- [ ] Confirm current `main` head and CI state after PR `#30`, `#32`, and `#33` merged.
+- [ ] Check the latest Azure deploy conclusion and record whether it is a blocker or later release work.
 - [ ] Draft the stale issue action map for `#5-#19`, but do not mutate issues without owner approval.
+- [ ] Select the next implementation issue: OAuth-only `/auth/me` bootstrap or workspace member/invite foundation.
 
 Expected proof at end of cycle:
 
-- PR #31 status, changed-file list, and check status.
-- PR #30 scope summary with changed modules and non-goals.
-- Test evidence for PR #30: `dotnet test PrintHub.sln`, `pytest`, and GitHub CI status.
-- Recommendation for PR #30.
+- PR `#31` status, changed-file list, and check status.
+- Current `main` head SHA and CI/deploy status.
+- Confirmation that PR `#30`, `#32`, and `#33` are merged or otherwise closed.
 - Proposed issue action list for `#5-#19`.
+- Recommended first implementation target with dependencies and acceptance criteria.
 
 ## Prioritized Phase 1 Work Items
 
-### P0: Planning, PR, And Repo Structure Stabilization
+### P0: Planning, PR, CI, And Repo Structure Stabilization
 
-- [ ] Complete PR #31 planning-doc lane.
-- [ ] Review and scope PR #30.
-- [ ] Confirm PR #30 title/body match actual implementation.
-- [ ] Confirm no temporary artifacts remain.
-- [ ] Confirm no Phase 1 boundary violations.
+- [ ] Complete PR `#31` planning-doc lane.
+- [ ] Confirm merged status of PR `#30`, PR `#32`, and PR `#33`.
+- [ ] Confirm `main` CI is green.
+- [ ] Triage current Azure deploy status.
 - [ ] Resolve `PrintHub.Api` versus `PrintHub.API` documentation/project naming drift.
 - [ ] Fix README architecture block.
 - [ ] Prepare issue reconciliation proposal for stale issues `#5-#19`.
+- [ ] Inspect old branches and prepare pruning recommendation.
 
 Acceptance criteria:
 
 - `ISSUES_EXECUTION_PLAN.md` on `main` is current enough for recurring PM cycles.
-- PR #30 title/body match changed paths.
-- Latest CI is green for PR #30 before merge.
-- Local verification is recorded or explicitly waived with reason.
+- Latest `main` CI status is recorded.
+- Azure deploy is either green, explicitly out of scope, or represented by a concrete follow-up issue.
 - Documentation uses one backend project naming convention.
 - README no longer has an empty architecture block.
 - Issue reconciliation proposal is ready for owner approval.
+- Branch pruning recommendation is owner-ready and non-destructive.
 
 Verification proof:
 
 - PR links and head SHAs.
-- CI run conclusions.
-- Command output summaries for `dotnet test PrintHub.sln` and `pytest`.
+- CI and deploy run conclusions.
 - Diff summary for docs/project naming cleanup.
 - Proposed issue action table.
+- Branch inspection summary.
+
+### P1: OAuth-Only Auth And User Profile Bootstrap
+
+- [ ] Add JWT bearer validation configuration.
+- [ ] Implement `GET /auth/me`.
+- [ ] Bootstrap a user profile on first valid OAuth sign-in.
+- [ ] Return user profile and workspace memberships.
+- [ ] Implement `POST /auth/logout` only if API-side session state exists.
+- [ ] Add tests for first sign-in, returning sign-in, missing token, invalid token, and workspace list response shape.
+
+Acceptance criteria:
+
+- API has no password registration, password login, password reset, or password hash storage.
+- `/auth/me` matches documented response shape or the docs are deliberately updated.
+- Auth behavior can be configured for local test/dev without production secrets.
+- Protected endpoints can rely on a current-user abstraction.
+
+Verification proof:
+
+- Auth tests passing.
+- Manual request examples for authenticated and unauthenticated calls.
+- Configuration documentation without secrets.
 
 ### P1: Backend Phase 1 Data Model And Workspace Authorization
 
@@ -195,27 +227,6 @@ Verification proof:
 - Unit/integration test names and results.
 - API examples showing `403` for non-members.
 - Model/repository diff summary.
-
-### P1: OAuth-Only Auth And User Profile Bootstrap
-
-- [ ] Add JWT bearer validation configuration.
-- [ ] Implement `GET /auth/me`.
-- [ ] Bootstrap a user profile on first valid OAuth sign-in.
-- [ ] Return user profile and workspace memberships.
-- [ ] Implement `POST /auth/logout` only if API-side session state exists.
-- [ ] Add tests for first sign-in, returning sign-in, missing token, invalid token, and workspace list response shape.
-
-Acceptance criteria:
-
-- API has no password registration, password login, password reset, or password hash storage.
-- `/auth/me` matches documented response shape or the docs are deliberately updated.
-- Auth behavior can be configured for local test/dev without production secrets.
-
-Verification proof:
-
-- Auth tests passing.
-- Manual request examples for authenticated and unauthenticated calls.
-- Configuration documentation without secrets.
 
 ### P1: Workspace Members And Contributor Invites
 
@@ -241,7 +252,7 @@ Verification proof:
 
 ### P1: Etsy Connection, Listing Sync, And Order Sync
 
-- [ ] Build on PR #30 Etsy service and product sync foundation after merge.
+- [ ] Build on the merged Etsy service and product sync foundation.
 - [ ] Connect one Etsy shop per workspace.
 - [ ] Store encrypted tokens and token metadata.
 - [ ] Support token refresh/revocation behavior.
@@ -345,7 +356,7 @@ Acceptance criteria:
 - Navigation reflects Phase 1 manual preparation workflow.
 - App works at desktop, tablet, and mobile widths without horizontal overflow.
 - Keyboard navigation reaches primary controls.
-- UI does not include Phase 3 printer execution as active workflow.
+- UI does not include Phase 3 printer execution as an active workflow.
 
 Verification proof:
 
@@ -466,16 +477,16 @@ Replace or retarget current stale issues with small PM-ready issues after owner 
 ```yaml
 issues:
   101:
-    title: Stabilize planning docs, PR #30 scope, and repo structure before Phase 1 feature work
+    title: Stabilize planning docs, CI/deploy gates, issue queue, and repo structure before Phase 1 feature work
     can_start: true
     blocks: [102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113]
   102:
-    title: Backend Phase 1 data model and workspace authorization
-    wait_for: [101]
-    blocks: [104, 105, 106, 107, 108]
-  103:
     title: OAuth-only auth integration and user profile bootstrap
     wait_for: [101]
+    blocks: [103, 104, 105, 106, 107, 108]
+  103:
+    title: Backend Phase 1 data model and workspace authorization
+    wait_for: [101, 102]
     blocks: [104, 105, 106, 107, 108]
   104:
     title: Workspace members and contributor invite flow
@@ -491,7 +502,7 @@ issues:
     blocks: [107, 108, 111, 112]
   107:
     title: Product, part, and file mapping API
-    wait_for: [102, 105, 106]
+    wait_for: [103, 105, 106]
     blocks: [108, 111, 112]
   108:
     title: Order preparation bundle API and manifest generation
@@ -503,7 +514,7 @@ issues:
     blocks: [110, 111, 112, 113]
   110:
     title: Public landing page, OAuth entry, and workspace settings UI
-    wait_for: [103, 104, 105, 109]
+    wait_for: [102, 104, 105, 109]
   111:
     title: Product and part file-management UI
     wait_for: [106, 107, 109]
@@ -523,9 +534,9 @@ Do not mutate these issues until the owner approves the rewrite.
 
 | Existing Issue | Proposed Action | Reason |
 | --- | --- | --- |
-| `#5 Data: implement Cosmos DB containers, tenant model, and repository foundation` | Retarget into issue 102 or close as superseded after replacement. | Too broad and tied to older tenant wording; workspace authorization needs sharper Phase 1 acceptance criteria. |
-| `#6 Backend: implement OAuth/B2C authentication and current-user API contract` | Retarget into issue 103. | Still directionally valid, but needs OAuth-only lock and `/auth/me` acceptance criteria. |
-| `#7 Backend: implement Etsy shop OAuth connection and listing sync foundation` | Retarget into issue 105 after PR #30 merges or close as covered if PR #30 fully satisfies it. | Partially addressed by PR #30, but full workspace-scoped listing/order sync remains larger. |
+| `#5 Data: implement Cosmos DB containers, tenant model, and repository foundation` | Retarget into issue 103 or close as superseded after replacement. | Too broad and tied to older tenant wording; workspace authorization needs sharper Phase 1 acceptance criteria. |
+| `#6 Backend: implement OAuth/B2C authentication and current-user API contract` | Retarget into issue 102. | Still directionally valid, but needs OAuth-only lock and `/auth/me` acceptance criteria. |
+| `#7 Backend: implement Etsy shop OAuth connection and listing sync foundation` | Retarget into issue 105 or close as partially covered after confirming merged PR scope. | Backend foundation is now merged, but full workspace-scoped listing/order sync remains larger. |
 | `#10 Backend: implement printer adapter contract with Mock and OctoEverywhere/OctoPrint adapters` | Move to later phase or close as superseded. | Printer adapters are explicitly out of Phase 1. |
 | `#11 Frontend: build public landing page and demo workspace entry` | Retarget into issue 110. | Keep OAuth entry; avoid demo workspace if it conflicts with real auth/workspace flow. |
 | `#12 Frontend: build dashboard and queue planning pages with mock data` | Retarget into issues 109 and 112. | Queue wording is stale; Phase 1 needs manual preparation/order bundle UI. |
@@ -542,65 +553,34 @@ Can run in parallel after P0 stabilization:
 
 - OAuth profile bootstrap and workspace data model, if user ID and authorization contracts are agreed first.
 - Frontend app shell with mocked API boundaries while backend foundations are underway.
-- Etsy sync and file storage after workspace authorization exists.
-- Contributor settings UI and product/file UI after app shell and backend contracts exist.
+- Etsy sync and file storage after workspace authorization contracts exist.
+- Product/file UI once API contracts are stable enough for integration.
 
-Hard waits:
+Should not run in parallel without explicit contract alignment:
 
-- Product/part/file mapping waits for workspace authorization, Etsy listing contracts, and file versioning.
-- Bundle generation waits for order sync, product mappings, and file versioning.
-- Orders UI waits for bundle API and product/file UI contracts.
-- End-to-end testing waits for all user-facing Phase 1 flows.
+- Bundle generation before product/part/file mapping contracts exist.
+- Contributor invites before workspace membership and roles are implemented.
+- Real authenticated frontend data loading before `/auth/me` and workspace selection contracts exist.
+- Azure production deployment hardening while core Phase 1 workflows are still unstable, unless the owner makes deployment the active priority.
 
-## Manual Verification Gate
+## Checks To Run
 
-Every implementation PR must include manual verification notes.
-
-For backend PRs, verify at minimum:
+Use these checks as applicable for implementation PRs:
 
 - `dotnet test PrintHub.sln`
-- `pytest` if Python tooling remains part of repo checks
-- Authenticated success path
-- Unauthenticated failure path
-- Workspace non-member denied path
-- Role-based permission denied path where applicable
-- No secrets or real tokens in committed fixtures/logs
+- `pytest`
+- Frontend test command from `frontend/package.json`
+- Playwright smoke checks for UI work
+- GitHub CI for every PR
+- Azure deploy workflow only when deploy/release work is in scope
 
-For UI PRs, verify at minimum:
+Docs-only PRs may record that source tests were not run when the changed-file scope is documentation-only.
 
-- Desktop width around 1440px
-- Tablet width around 768px
-- Mobile width around 390px
-- No horizontal overflow
-- Keyboard navigation reaches every primary control
-- Empty, loading, error, and permission-denied states are visible and styled
-- Light theme remains the default
-- No active Phase 1 UI implies direct printer submission or live printer execution
+## Open Questions For Owner
 
-## Later-Phase Bucket
-
-Keep these out of Phase 1 unless the owner explicitly re-scopes:
-
-- Bambu printer integration.
-- OctoEverywhere or OctoPrint adapters.
-- Direct cloud print submission.
-- Live printer telemetry.
-- Automatic slicing.
-- Build-plate packing.
-- Printer queue/job execution.
-- Inventory forecasting.
-- Cost analytics and reorder intelligence.
-- Billing.
-- Multi-shop subscriptions.
-
-Existing issues that point at these areas should be closed as superseded, moved to later-phase tracking, or rewritten so they no longer block Phase 1.
-
-## Owner Decisions Needed
-
-- Should PR #31 be merged as the current planning-doc source of truth?
-- Is PR #30 allowed to merge once final scope review passes and CI remains green?
-- Should OpenClaw replace/retarget stale GitHub issues `#5-#19` with the proposed Phase 1 issue queue?
-- Which backend project name is canonical: `PrintHub.Api` or `PrintHub.API`?
-- Should tests remain consolidated under `tests/PrintHub.Tests` for Phase 1, or should the repo move toward split test projects?
-- Are historical branches `fix/issue-2`, `fix/issue-3`, and `fix/issue-14` safe to prune after inspection?
-- Is `Viewer` a required Phase 1 role, or should Phase 1 implement only Owner and Contributor?
+- Should PR `#31` be merged as soon as it is verified docs-only and clean?
+- Should stale issues `#5-#19` be rewritten in place, closed and replaced, or left open with comments pointing to the new plan?
+- Is Azure deployment currently a Phase 1 blocker, or should deploy failures be tracked separately until product workflows are closer?
+- Should Phase 1 include a `Viewer` role, or only `Owner` and `Contributor`?
+- Should old branches be pruned after confirming their work merged or became obsolete?
+- Which implementation lane should start first after P0: OAuth `/auth/me` bootstrap or workspace member/invite foundation?
