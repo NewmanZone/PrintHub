@@ -50,7 +50,7 @@ Later Phase:
 
 ## Core Components
 
-### 1. PrintHub.API
+### 1. PrintHub.Api
 
 - ASP.NET Core 8 Web API.
 - REST endpoints for workspaces, members, Etsy connection, products, parts, files, orders, and preparation bundles.
