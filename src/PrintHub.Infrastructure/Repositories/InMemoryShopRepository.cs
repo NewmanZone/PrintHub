@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using PrintHub.Core.Entities;
 using PrintHub.Core.Interfaces.Repositories;
 
@@ -5,7 +6,7 @@ namespace PrintHub.Infrastructure.Repositories;
 
 public class InMemoryShopRepository : IShopRepository
 {
-    private readonly Dictionary<Guid, Shop> _shops = new();
+    private readonly ConcurrentDictionary<Guid, Shop> _shops = new();
 
     public Task<Shop?> GetByIdAsync(Guid id, CancellationToken ct = default)
     {
@@ -21,7 +22,8 @@ public class InMemoryShopRepository : IShopRepository
 
     public Task<IEnumerable<Shop>> GetByUserIdAsync(Guid userId, CancellationToken ct = default)
     {
-        var shops = _shops.Values.Where(s => s.UserId == userId).ToList();
+        // Snapshot to avoid concurrent enumeration issues
+        var shops = _shops.Values.ToList().Where(s => s.UserId == userId).ToList();
         return Task.FromResult<IEnumerable<Shop>>(shops);
     }
 
@@ -40,7 +42,7 @@ public class InMemoryShopRepository : IShopRepository
 
     public Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        _shops.Remove(id);
+        _shops.TryRemove(id, out _);
         return Task.CompletedTask;
     }
 }
