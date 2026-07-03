@@ -2,7 +2,7 @@
 
 ## Updated By OpenClaw PM
 
-Generated: 2026-07-03T14:28:31Z  
+Generated: maintained by OpenClaw PM
 Repo: NewmanZone/PrintHub  
 Planning document: `ISSUES_EXECUTION_PLAN.md`  
 Current planning source: `origin/pm/docs-plan:ISSUES_EXECUTION_PLAN.md`
@@ -24,27 +24,21 @@ Bambu, OctoEverywhere, direct printer submission, live printer status, automatic
 
 ## Current Implementation Status
 
-The documentation describes a focused Phase 1 product: OAuth-only auth, shared workspaces, Etsy connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal, but the backend Etsy/shop foundation has moved forward since the original baseline review.
+The repo documentation describes a focused Phase 1 product: OAuth-only auth, shared workspaces, Etsy connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal, but the backend Etsy/shop foundation has moved forward since the original baseline review.
 
 Current repo state from the latest PM snapshot:
 
 - Default branch: `main`
-- Latest observed `main` head: `1f011947b757859bb9af405a57d48fd650460611`
 - Open PRs:
   - `#31 [PM Docs] Update PrintHub planning docs`
     - Branch: `pm/docs-plan`
-    - Head: `9570f73a5cfbbf75c3290085394a998dd02523b7`
     - Draft: no
-    - Merge state: clean
-    - Latest observed CI: success
+    - Merge state: clean in the supplied snapshot
     - Purpose: documentation/planning lane
 - Recently merged or no longer open:
   - PR `#30`
   - PR `#32`
   - PR `#33`
-- Latest observed `main` checks:
-  - `CI`: success on `1f011947b757859bb9af405a57d48fd650460611`
-  - `Deploy to Azure`: failure on `1f011947b757859bb9af405a57d48fd650460611`
 - Open branches observed:
   - `codex/pm-newmanzone__printhub-20260703t063416z`
   - `codex/pm-newmanzone__printhub-20260703t090148z`
@@ -57,6 +51,7 @@ Current repo state from the latest PM snapshot:
 - Open GitHub issues `#5-#19` remain stale relative to this plan.
 - Latest supplied branch-health state for PR `#31` reports no blocking findings.
 - No current source path structural blocker is reported, but .NET project naming drift remains a planning and agent-routing risk.
+- Recent Azure deployment runs on `main` have failed while CI runs have passed; PM gates must verify live check state before merging or starting deploy work.
 
 Implemented or partially implemented on `main` after PR `#30`, PR `#32`, and PR `#33` merged:
 
@@ -94,11 +89,11 @@ Not yet complete for the documented Phase 1 end goal:
 | OAuth-only authentication with no PrintHub password registration/login/reset. | Intended requirement | Documented in README, API design, data model, and security docs. | Implement JWT validation, `/auth/me`, and profile bootstrap. Reject password-based auth additions. |
 | Shared workspace with contributors is central to Phase 1. | Intended requirement | Documented, but not implemented yet. | Prioritize workspace model and authorization before dependent domain work. |
 | Source STL/3MF retention by default with user-controlled delete/purge. | Intended requirement | Documented, but not implemented yet. | Include retention, delete, purge, and signed/private download behavior in file-storage acceptance criteria. |
-| PR `#30`, `#32`, and `#33` are merged but older planning text treated them as pending blockers. | Unintended divergence | PR `#31` now updates the plan to current state and has green CI. | Complete final PR `#31` gates, then merge or auto-merge if policy allows. |
+| PR `#30`, PR `#32`, and PR `#33` are merged but older planning text treated them as pending blockers. | Unintended divergence | PR `#31` is the docs-lane update intended to correct this. | Complete final PR `#31` gates without hardcoding volatile head/check evidence in this plan. |
 | Open issues `#5-#19` still reflect older broad scope and include printer/mock UI/inventory work. | Unintended divergence | GitHub issue queue is stale relative to the documented Phase 1 issue queue. | Replace, close, or retarget stale issues after owner approval. |
 | `DESIGN/dotnet-structure.md` describes `PrintHub.API` and split test projects, while observed structure includes `src/PrintHub.Api` and `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
 | README architecture block is empty/truncated. | Unintended divergence | README lacks a useful architecture diagram. | Fill or remove the empty block during docs cleanup. |
-| Azure deployment workflow is failing while CI passes. | Needs owner decision | Latest observed `Deploy to Azure` on `main` failed. | Decide whether Azure deploy is an active Phase 1 blocker now or later release hardening. |
+| Azure deployment workflow is failing while CI passes. | Needs owner decision | Recent deploy runs on `main` failed. | Decide whether Azure deploy is an active Phase 1 blocker now or later release hardening. |
 | Historical branches `feat/issue-9-queue-planning`, `fix/issue-2`, `fix/issue-3`, `fix/issue-14`, and PM branches remain open. | Needs owner decision | They may be obsolete after merges, but branch deletion needs approval. | Inspect and prune only after owner approval. |
 | `Viewer` role appears in data model guidance but may be optional for Phase 1. | Needs owner decision | Owner and contributor are clearly required; viewer may add extra scope. | Decide whether Phase 1 includes Viewer or defers it. |
 
@@ -111,7 +106,7 @@ Normal feature work should start only after these gates are handled or explicitl
   - Confirm branch-health has no blockers.
   - Confirm only `ISSUES_EXECUTION_PLAN.md` is changed.
   - Confirm the planning doc reflects that PR `#30`, PR `#32`, and PR `#33` are merged.
-  - Confirm GitHub CI is green on head `9570f73a5cfbbf75c3290085394a998dd02523b7`.
+  - Confirm GitHub CI is green on the current PR head by checking live state, not this document.
   - Confirm no active unresolved blocking review threads remain.
   - If all gates remain green, allow autonomous completion under the current auto-merge policy.
 
@@ -142,20 +137,20 @@ Normal feature work should start only after these gates are handled or explicitl
 
 Next 2-hour cycle:
 
-- [ ] Run final PM review gates for PR `#31` on head `9570f73a5cfbbf75c3290085394a998dd02523b7`.
+- [ ] Update PR `#31` plan text to avoid stale, hardcoded PR head/check evidence.
 - [ ] Confirm PR `#31` is docs-only and changes only `ISSUES_EXECUTION_PLAN.md`.
-- [ ] Confirm PR `#31` CI remains green and merge state remains clean.
+- [ ] Confirm PR `#31` CI remains green and merge state remains clean by checking live PR state.
 - [ ] Confirm no unresolved blocking review threads remain.
 - [ ] Complete autonomous merge or auto-merge if all policy gates pass.
-- [ ] Record `main` head and CI/deploy status after PR `#31` lands.
+- [ ] Record `main` head and CI/deploy status after PR `#31` lands in PM run output, not as permanent volatile plan text.
 - [ ] Prepare owner-facing stale issue action map for `#5-#19`.
 - [ ] Recommend the first implementation lane after planning lands: OAuth-only `/auth/me` bootstrap first, then workspace authorization/member foundations.
 
 Expected proof at end of cycle:
 
-- PR `#31` status, head SHA, changed-file list, review-thread status, and CI conclusion.
+- PR `#31` status, changed-file list, review-thread status, and live CI conclusion.
 - Merge or auto-merge result for PR `#31`, or specific blocker if it cannot land.
-- Current `main` head SHA and CI/deploy status after PR `#31`.
+- Current `main` head and CI/deploy status recorded in PM cycle output.
 - Proposed issue action list for `#5-#19`.
 - Recommended first implementation issue with dependencies and acceptance criteria.
 
@@ -175,7 +170,7 @@ Expected proof at end of cycle:
 Acceptance criteria:
 
 - `ISSUES_EXECUTION_PLAN.md` on `main` is current enough for recurring PM cycles.
-- Latest `main` CI status is recorded.
+- Live `main` CI status is recorded in PM run output.
 - Azure deploy is either green, explicitly out of scope, or represented by a concrete follow-up issue.
 - Documentation uses one backend project naming convention.
 - README no longer has an empty architecture block.
@@ -184,8 +179,8 @@ Acceptance criteria:
 
 Verification proof:
 
-- PR links and head SHAs.
-- CI and deploy run conclusions.
+- PR links and current head/check status recorded by the PM run.
+- CI and deploy run conclusions checked live.
 - Diff summary for docs/project naming cleanup.
 - Proposed issue action table.
 - Branch inspection summary.
