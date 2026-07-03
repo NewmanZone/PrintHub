@@ -32,9 +32,8 @@ Current repo state from the latest PM snapshot:
 - Open PRs:
   - `#31 [PM Docs] Update PrintHub planning docs`
     - Branch: `pm/docs-plan`
-    - Draft: no
-    - Merge state: clean in the supplied snapshot
     - Purpose: documentation/planning lane
+    - Live merge state, changed files, review threads, and check status must be verified by PM gates before merge.
 - Recently merged or no longer open:
   - PR `#30`
   - PR `#32`
@@ -49,9 +48,9 @@ Current repo state from the latest PM snapshot:
   - `main`
   - `pm/docs-plan`
 - Open GitHub issues `#5-#19` remain stale relative to this plan.
-- Latest supplied branch-health state for PR `#31` reports no blocking findings.
+- Latest supplied local branch-health state reports no blocking findings for the checked local state.
 - No current source path structural blocker is reported, but .NET project naming drift remains a planning and agent-routing risk.
-- Recent Azure deployment runs on `main` have failed while CI runs have passed; PM gates must verify live check state before merging or starting deploy work.
+- Recent Azure deployment runs on `main` have failed while normal CI has been passing; PM gates must verify live check state before merging or starting deploy work.
 
 Implemented or partially implemented on `main` after PR `#30`, PR `#32`, and PR `#33` merged:
 
@@ -137,9 +136,8 @@ Normal feature work should start only after these gates are handled or explicitl
 
 Next 2-hour cycle:
 
-- [ ] Update PR `#31` plan text to avoid stale, hardcoded PR head/check evidence.
 - [ ] Confirm PR `#31` is docs-only and changes only `ISSUES_EXECUTION_PLAN.md`.
-- [ ] Confirm PR `#31` CI remains green and merge state remains clean by checking live PR state.
+- [ ] Confirm PR `#31` live CI remains green and live merge state remains clean.
 - [ ] Confirm no unresolved blocking review threads remain.
 - [ ] Complete autonomous merge or auto-merge if all policy gates pass.
 - [ ] Record `main` head and CI/deploy status after PR `#31` lands in PM run output, not as permanent volatile plan text.
