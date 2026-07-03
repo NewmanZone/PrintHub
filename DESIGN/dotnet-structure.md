@@ -9,12 +9,12 @@ The backend uses a clean architecture layout. Phase 1 implements workspace-scope
 ```text
 PrintHub.sln
 |-- src/
-|   |-- PrintHub.API/
+|   |-- PrintHub.Api/
 |   |-- PrintHub.Core/
 |   |-- PrintHub.Infrastructure/
 |   `-- PrintHub.Worker/
 `-- tests/
-    |-- PrintHub.API.Tests/
+    |-- PrintHub.Tests/
     |-- PrintHub.Core.Tests/
     `-- PrintHub.Infrastructure.Tests/
 ```
@@ -99,12 +99,12 @@ PrintHub.Infrastructure/
 
 Later phase printer integrations should live under `Services/Printers/` behind adapter interfaces after Phase 1.
 
-## PrintHub.API
+## PrintHub.Api
 
 ASP.NET Core 8 Web API.
 
 ```text
-PrintHub.API/
+PrintHub.Api/
 |-- Controllers/
 |   |-- AuthController.cs
 |   |-- WorkspacesController.cs
@@ -173,7 +173,7 @@ tests/
 |   |-- EtsySyncServiceTests.cs
 |   |-- AzureBlobFileStorageServiceTests.cs
 |   `-- RepositoryTests.cs
-`-- PrintHub.API.Tests/
+`-- PrintHub.Tests/
     |-- AuthControllerTests.cs
     |-- WorkspacesControllerTests.cs
     |-- ProductsControllerTests.cs
@@ -212,7 +212,7 @@ tests/
 dotnet restore PrintHub.sln
 dotnet build PrintHub.sln
 dotnet test PrintHub.sln
-dotnet run --project src/PrintHub.API
+dotnet run --project src/PrintHub.Api
 ```
 
 ## Lock

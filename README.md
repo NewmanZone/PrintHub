@@ -105,7 +105,7 @@ PrintHub/
 |-- frontend/
 |   `-- src/
 |-- src/
-|   |-- PrintHub.API/
+|   |-- PrintHub.Api/
 |   |-- PrintHub.Core/
 |   |-- PrintHub.Infrastructure/
 |   `-- PrintHub.Worker/
