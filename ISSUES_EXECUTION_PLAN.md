@@ -2,10 +2,10 @@
 
 ## Updated By OpenClaw PM
 
-Generated: 2026-07-01T16:51:30Z  
+Generated: 2026-07-03T06:24:55Z  
 Repo: NewmanZone/PrintHub  
 Planning document: `ISSUES_EXECUTION_PLAN.md`  
-Baseline snapshot time: 2026-07-01T16:50:43Z
+Current planning source: `origin/pm/docs-plan:ISSUES_EXECUTION_PLAN.md`
 
 ## Phase 1 Goal
 
@@ -24,19 +24,33 @@ Bambu, OctoEverywhere, direct printer submission, live printer status, automatic
 
 ## Current Implementation Status
 
-The repo documentation now describes a focused Phase 1 product: OAuth-only shared workspace, Etsy shop connection, product/file library, order sync, and manual preparation bundles. The active implementation is behind that documented end goal.
+The repo documentation describes a focused Phase 1 product: OAuth-only shared workspace, Etsy shop connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal.
 
-Current baseline state:
+Current repo state from the latest PM snapshot:
 
-- Local repo state is clean.
-- Active branch: `feat/issue-9-queue-planning`
-- Active PR: `#30 Draft: Package validated PrintHub backend and queue work`
-- PR #30 merge state: clean
-- PR #30 head: `8732a873c6620a3c6b315688ab2376ba513c7f72`
-- Latest CI on PR #30 head: passing
-- Branch is 26 commits ahead of `main`, 0 behind.
-- No branch-health path coverage blockers were detected for the changed files.
-- Open GitHub issues `#5-#19` are stale relative to this plan.
+- Default branch: `main`
+- Open PRs:
+  - `#31 [PM Docs] Update PrintHub planning docs`
+    - Branch: `pm/docs-plan`
+    - Draft: no
+    - Merge state: clean
+    - Purpose: documentation/planning lane
+  - `#30 Draft: Add Etsy shop OAuth and product sync foundation`
+    - Branch: `feat/issue-9-queue-planning`
+    - Draft: no
+    - Merge state: clean
+    - Latest observed head: `b28ff55d2f3e9cee3b9d7d7fef8799431e57be8e`
+    - Latest observed CI: passing
+- Open branches:
+  - `feat/issue-9-queue-planning`
+  - `pm/docs-plan`
+  - `fix/issue-2`
+  - `fix/issue-3`
+  - `fix/issue-14`
+  - `main`
+- Open GitHub issues `#5-#19` remain stale relative to this plan.
+- Latest branch-health scan reported no structural path blockers for PR #30 changed files.
+- Recent CI on PR #30 has multiple successful runs after one failure, with the latest run passing.
 
 Implemented or partially implemented on PR #30, not yet merged to `main`:
 
@@ -46,8 +60,11 @@ Implemented or partially implemented on PR #30, not yet merged to `main`:
 - Shop service.
 - Token encryption service.
 - Shop controller endpoints.
-- Dependency injection coverage.
-- Unit tests for Etsy API service, shop service, shops controller, token encryption, and DI resolution.
+- Product repository interface and in-memory product repository foundation.
+- Product sync foundation.
+- Dependency injection wiring and coverage.
+- Tests for Etsy API service, shop service, shops controller, auth pipeline behavior, token encryption, and DI resolution.
+- Project/runtime support changes, including `global.json`, project files, and API Dockerfile updates.
 
 Not yet complete for the documented Phase 1 end goal:
 
@@ -55,8 +72,9 @@ Not yet complete for the documented Phase 1 end goal:
 - Workspace creation, selection, membership, roles, and authorization enforcement.
 - Contributor invite flow.
 - Persistent Phase 1 domain model across users, workspaces, shops, products, parts, files, orders, and bundles.
+- Durable persistence beyond in-memory foundations where Phase 1 requires it.
 - Etsy listing sync and Etsy order sync as a full workspace-scoped workflow.
-- File storage, upload, versioning, signed download, deletion, and purge controls.
+- File storage, upload, versioning, signed/private download, deletion, and purge controls.
 - Product-to-part-to-current-file mapping APIs.
 - Preparation bundle generation, manifest creation, download, completion marking, and audit trail.
 - Authenticated React frontend flows backed by real APIs.
@@ -64,32 +82,40 @@ Not yet complete for the documented Phase 1 end goal:
 
 ## Documentation Divergences
 
-| Area | Classification | Status | Required Action |
+| Area | Classification | Current Status | Required Action |
 | --- | --- | --- | --- |
-| Phase 1 excludes Bambu, OctoEverywhere, direct print submission, live printer status, and automatic printer queues. | Intended requirement | README and design docs now consistently point Phase 1 toward manual bundles. | Keep this constraint in every issue and PR review. Do not accept printer execution work into Phase 1. |
-| OAuth-only authentication with no PrintHub password registration/login/reset. | Intended requirement | Documented in README, API design, data model, and security docs. | Implement `/auth/me`, JWT validation, and profile bootstrap. Reject password-based auth additions. |
-| Shared workspace with contributors is central to Phase 1. | Intended requirement | Documented, but not implemented yet. | Prioritize workspace data model and authorization before dependent domain work. |
-| Source STL/3MF retention by default with user-controlled delete/purge. | Intended requirement | Documented, but not implemented yet. | Include retention, delete, purge, and signed URL behavior in file-storage issue acceptance criteria. |
-| Open issues `#5-#19` still reflect older broad scope and include printer/mock UI/inventory work. | Unintended divergence | GitHub issue queue is stale relative to the documented Phase 1 issue plan. | Replace, close, or retarget stale issues after owner approval. |
-| PR #30 title says backend and queue work, but changed paths are mostly Etsy shop/service/token foundation. | Unintended divergence | PR scope appears narrower than title/body imply. | Review PR #30, then retitle/body to match actual scope before marking ready. |
-| `DESIGN/dotnet-structure.md` describes `src/PrintHub.API` and split test projects, while repo snapshot includes both `src/PrintHub.Api` and `src/PrintHub.API`, plus `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
+| Phase 1 excludes Bambu, OctoEverywhere, direct print submission, live printer status, and automatic printer queues. | Intended requirement | README and design docs now point Phase 1 toward manual bundles. | Keep this constraint in every issue and PR review. Do not accept printer execution work into Phase 1. |
+| OAuth-only authentication with no PrintHub password registration/login/reset. | Intended requirement | Documented in README, API design, data model, and security docs. | Implement JWT validation, `/auth/me`, and profile bootstrap. Reject password-based auth additions. |
+| Shared workspace with contributors is central to Phase 1. | Intended requirement | Documented, but not implemented yet. | Prioritize workspace model and authorization before dependent domain work. |
+| Source STL/3MF retention by default with user-controlled delete/purge. | Intended requirement | Documented, but not implemented yet. | Include retention, delete, purge, and signed/private download behavior in file-storage acceptance criteria. |
+| PR #30 title/body were previously broader than its implementation. | Unintended divergence | Title now better reflects Etsy shop OAuth and product sync foundation, but body/scope still need final review before merge. | Confirm PR #30 title/body match changed paths and Phase 1 non-goals. |
+| Open issues `#5-#19` still reflect older broad scope and include printer/mock UI/inventory work. | Unintended divergence | GitHub issue queue is stale relative to the documented Phase 1 issue queue. | Replace, close, or retarget stale issues after owner approval. |
+| `DESIGN/dotnet-structure.md` describes `PrintHub.API` and split test projects, while observed repo structure includes `src/PrintHub.Api` and `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
 | README architecture block is empty/truncated. | Unintended divergence | README lacks a useful architecture diagram. | Fill or remove the empty block during docs cleanup. |
-| Historical branches `fix/issue-2`, `fix/issue-3`, and `fix/issue-14` remain open. | Needs owner decision | They may be obsolete, but branch deletion needs approval. | Ask owner whether to prune after confirming no useful work remains. |
-| Repo config note says local workspace is dirty, but latest local snapshot says clean. | Needs owner decision | Baseline evidence indicates the note is stale. | Update PM metadata if that note is still maintained elsewhere. |
+| Historical branches `fix/issue-2`, `fix/issue-3`, and `fix/issue-14` remain open. | Needs owner decision | They may be obsolete, but branch deletion needs approval. | Ask owner whether to inspect and prune after confirming no useful work remains. |
+| `Viewer` role appears in data model guidance but may be optional for Phase 1. | Needs owner decision | Owner/contributor are clearly required; viewer may add extra scope. | Decide whether Phase 1 includes Viewer or defers it. |
 
 ## Active Blockers And Gates
 
-Normal Phase 1 feature work should wait on these first:
+Normal feature work should start only after these gates are handled or explicitly waived.
 
-- [ ] Resolve PR #30 scope gate.
-  - Confirm the diff is intentionally limited to Etsy/shop/token backend foundation.
-  - Retitle and update the PR body if it is not actual queue work.
-  - Confirm `dotnet test PrintHub.sln` and `pytest` pass locally or explain why a check is not applicable.
-  - Confirm latest GitHub CI remains green on head `8732a873c6620a3c6b315688ab2376ba513c7f72`.
-  - Owner approval is required before marking PR #30 ready or merging.
+- [ ] Merge or supersede PR #31 so the repo-owned plan is current on `main`.
+  - Confirm PR #31 changes only planning/documentation files.
+  - Confirm the PR body describes the documentation-only scope.
+  - Confirm checks are green or that docs-only checks are not required.
+  - Do not merge without owner approval if the repo mode still requires owner approval.
+
+- [ ] Complete PR #30 owner-decision gate.
+  - Confirm the diff is intentionally limited to Etsy shop OAuth/product sync/backend foundation work.
+  - Confirm title/body match actual changed paths and do not imply full queue or bundle completion.
+  - Confirm no temporary artifacts remain.
+  - Confirm no Phase 1 boundary violations: no Bambu, OctoEverywhere, direct printer submission, live printer status, or automatic printer queue dependency.
+  - Confirm `dotnet test PrintHub.sln` and `pytest` pass locally or document why a check is not applicable.
+  - Confirm latest GitHub CI remains green on the current PR head.
+  - Owner approval is required before merging if owner-approval mode remains active.
 
 - [ ] Resolve .NET structure naming drift.
-  - Choose canonical API project casing: current implementation appears to use `src/PrintHub.Api`, while docs mention `src/PrintHub.API`.
+  - Choose canonical API project casing: current implementation appears to use `src/PrintHub.Api`, while some docs mention `src/PrintHub.API`.
   - Decide whether `tests/PrintHub.Tests` remains the Phase 1 test project or whether split test projects are required later.
   - Update docs and solution/project references to one convention.
 
@@ -102,53 +128,60 @@ Normal Phase 1 feature work should wait on these first:
 
 Next 2-hour cycle:
 
-- [ ] Review PR #30 against Phase 1 boundaries and prepare it for an owner decision.
-- [ ] Produce an updated PR title/body that accurately describes Etsy shop connection, token encryption, service wiring, DI, and tests.
-- [ ] Verify latest CI and local test status.
-- [ ] Identify whether PR #30 should be marked ready for review, left as draft for more narrowing, or split.
-- [ ] Draft the issue reconciliation proposal for stale issues `#5-#19`, but do not mutate issues without owner approval.
+- [ ] Land or prepare owner-ready completion for PR #31.
+- [ ] Re-check PR #31 changed files and checks; keep it documentation-only.
+- [ ] Re-check PR #30 head SHA, CI, title/body, and changed files after the latest commits.
+- [ ] Produce a concise owner recommendation for PR #30: merge, hold, split, or request changes.
+- [ ] Draft the stale issue action map for `#5-#19`, but do not mutate issues without owner approval.
 
 Expected proof at end of cycle:
 
+- PR #31 status, changed-file list, and check status.
 - PR #30 scope summary with changed modules and non-goals.
-- Test evidence: `dotnet test PrintHub.sln`, `pytest`, and GitHub CI status.
-- Recommendation: ready-for-review, needs edits, split, or close.
+- Test evidence for PR #30: `dotnet test PrintHub.sln`, `pytest`, and GitHub CI status.
+- Recommendation for PR #30.
 - Proposed issue action list for `#5-#19`.
 
 ## Prioritized Phase 1 Work Items
 
-### P0: PR And Repo Structure Stabilization
+### P0: Planning, PR, And Repo Structure Stabilization
 
+- [ ] Complete PR #31 planning-doc lane.
 - [ ] Review and scope PR #30.
-- [ ] Retitle/body PR #30 to match actual implementation.
+- [ ] Confirm PR #30 title/body match actual implementation.
 - [ ] Confirm no temporary artifacts remain.
-- [ ] Confirm no Phase 1 boundary violations: no Bambu, OctoEverywhere, direct print submission, live printer status, or automatic printer queue dependency.
+- [ ] Confirm no Phase 1 boundary violations.
 - [ ] Resolve `PrintHub.Api` versus `PrintHub.API` documentation/project naming drift.
 - [ ] Fix README architecture block.
+- [ ] Prepare issue reconciliation proposal for stale issues `#5-#19`.
 
 Acceptance criteria:
 
+- `ISSUES_EXECUTION_PLAN.md` on `main` is current enough for recurring PM cycles.
 - PR #30 title/body match changed paths.
-- Latest CI is green.
+- Latest CI is green for PR #30 before merge.
 - Local verification is recorded or explicitly waived with reason.
 - Documentation uses one backend project naming convention.
 - README no longer has an empty architecture block.
+- Issue reconciliation proposal is ready for owner approval.
 
 Verification proof:
 
-- PR link and head SHA.
-- CI run conclusion.
+- PR links and head SHAs.
+- CI run conclusions.
 - Command output summaries for `dotnet test PrintHub.sln` and `pytest`.
 - Diff summary for docs/project naming cleanup.
+- Proposed issue action table.
 
 ### P1: Backend Phase 1 Data Model And Workspace Authorization
 
 - [ ] Implement core entities for User, Workspace, WorkspaceMember, Shop, Product, Part, ProductPart, PrintFile, PrintFileVersion, EtsyOrder, EtsyOrderItem, PreparationBundle, PreparationBundleItem, and AuditEvent as needed for Phase 1.
 - [ ] Implement repository interfaces and persistence foundation.
+- [ ] Replace in-memory-only foundations where durable Phase 1 behavior requires persistence.
 - [ ] Implement current-user context abstraction.
 - [ ] Implement workspace authorization service.
 - [ ] Enforce workspace membership and role checks on protected endpoints.
-- [ ] Add tests for owner, contributor, viewer/read-only if retained, non-member denied, removed member denied, and missing workspace denied.
+- [ ] Add tests for owner, contributor, optional viewer/read-only, non-member denied, removed member denied, and missing workspace denied.
 
 Acceptance criteria:
 
@@ -176,7 +209,7 @@ Acceptance criteria:
 
 - API has no password registration, password login, password reset, or password hash storage.
 - `/auth/me` matches documented response shape or the docs are deliberately updated.
-- Auth behavior can be configured for local test/dev without real production secrets.
+- Auth behavior can be configured for local test/dev without production secrets.
 
 Verification proof:
 
@@ -208,7 +241,7 @@ Verification proof:
 
 ### P1: Etsy Connection, Listing Sync, And Order Sync
 
-- [ ] Build on PR #30 Etsy service foundation after merge.
+- [ ] Build on PR #30 Etsy service and product sync foundation after merge.
 - [ ] Connect one Etsy shop per workspace.
 - [ ] Store encrypted tokens and token metadata.
 - [ ] Support token refresh/revocation behavior.
@@ -433,7 +466,7 @@ Replace or retarget current stale issues with small PM-ready issues after owner 
 ```yaml
 issues:
   101:
-    title: Stabilize PR #30 scope and repo structure before Phase 1 feature work
+    title: Stabilize planning docs, PR #30 scope, and repo structure before Phase 1 feature work
     can_start: true
     blocks: [102, 103, 104, 105, 106, 107, 108, 109, 110, 111, 112, 113]
   102:
@@ -483,6 +516,25 @@ issues:
     title: Phase 1 end-to-end tests, accessibility pass, and manual verification
     wait_for: [110, 111, 112]
 ```
+
+## Stale Issue Reconciliation Proposal
+
+Do not mutate these issues until the owner approves the rewrite.
+
+| Existing Issue | Proposed Action | Reason |
+| --- | --- | --- |
+| `#5 Data: implement Cosmos DB containers, tenant model, and repository foundation` | Retarget into issue 102 or close as superseded after replacement. | Too broad and tied to older tenant wording; workspace authorization needs sharper Phase 1 acceptance criteria. |
+| `#6 Backend: implement OAuth/B2C authentication and current-user API contract` | Retarget into issue 103. | Still directionally valid, but needs OAuth-only lock and `/auth/me` acceptance criteria. |
+| `#7 Backend: implement Etsy shop OAuth connection and listing sync foundation` | Retarget into issue 105 after PR #30 merges or close as covered if PR #30 fully satisfies it. | Partially addressed by PR #30, but full workspace-scoped listing/order sync remains larger. |
+| `#10 Backend: implement printer adapter contract with Mock and OctoEverywhere/OctoPrint adapters` | Move to later phase or close as superseded. | Printer adapters are explicitly out of Phase 1. |
+| `#11 Frontend: build public landing page and demo workspace entry` | Retarget into issue 110. | Keep OAuth entry; avoid demo workspace if it conflicts with real auth/workspace flow. |
+| `#12 Frontend: build dashboard and queue planning pages with mock data` | Retarget into issues 109 and 112. | Queue wording is stale; Phase 1 needs manual preparation/order bundle UI. |
+| `#13 Frontend: build products, product detail, parts, and file version pages with mock data` | Retarget into issue 111. | Directionally valid but should depend on product/file API contracts. |
+| `#14 Frontend: build printers, settings, orders, and jobs workspace pages with mock data` | Split or close as superseded. | Settings/orders remain valid; printers/jobs are later phase. |
+| `#16 Backend: implement inventory movements, cost records, alerts, and insights dashboard` | Move to later phase or close as superseded. | Inventory/cost analytics are out of Phase 1. |
+| `#17 Backend: implement personalized Etsy orders sync and queue handoff` | Retarget into issues 105 and 108. | Personalization and order sync remain valid; queue handoff should become manual bundle preparation. |
+| `#18 Frontend: wire real API clients, OAuth flow, and authenticated data loading` | Retarget across issues 109-112. | Too broad as one issue; should be split by user workflow. |
+| `#19 Infra: add Azure deployment, managed identity config, secrets, and operational docs` | Keep for later Phase 1 hardening or split after core workflows exist. | Infra is needed before production, but should not block early product workflow implementation unless required by auth/storage. |
 
 ## Parallelization Guidance
 
@@ -545,8 +597,8 @@ Existing issues that point at these areas should be closed as superseded, moved 
 
 ## Owner Decisions Needed
 
-- Should PR #30 be marked ready for review after scope/title/body cleanup, or should it remain draft for more changes?
-- Is PR #30 allowed to merge once review passes and CI remains green?
+- Should PR #31 be merged as the current planning-doc source of truth?
+- Is PR #30 allowed to merge once final scope review passes and CI remains green?
 - Should OpenClaw replace/retarget stale GitHub issues `#5-#19` with the proposed Phase 1 issue queue?
 - Which backend project name is canonical: `PrintHub.Api` or `PrintHub.API`?
 - Should tests remain consolidated under `tests/PrintHub.Tests` for Phase 1, or should the repo move toward split test projects?
