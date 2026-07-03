@@ -1,11 +1,17 @@
 using PrintHub.Core.Entities;
 using PrintHub.Core.Interfaces.Repositories;
+using System.Collections.Concurrent;
 
 namespace PrintHub.Infrastructure.Repositories;
 
 public class InMemoryProductRepository : IProductRepository
 {
-    private readonly Dictionary<Guid, Product> _products = new();
+    private readonly ConcurrentDictionary<Guid, Product> _products = new();
+
+    public Task<IEnumerable<Product>> GetAllAsync(CancellationToken ct = default)
+    {
+        return Task.FromResult<IEnumerable<Product>>(_products.Values.ToList());
+    }
 
     public Task<Product?> GetByExternalListingIdAsync(string externalListingId, Guid shopId, CancellationToken ct = default)
     {
@@ -27,19 +33,16 @@ public class InMemoryProductRepository : IProductRepository
 
     public Task<IEnumerable<Product>> GetByShopIdAsync(Guid shopId, CancellationToken ct = default)
     {
-        var products = _products.Values.Where(p => p.ShopId == shopId).ToList();
+        var products = _products.Values
+            .Where(p => p.ShopId == shopId)
+            .ToList();
         return Task.FromResult<IEnumerable<Product>>(products);
     }
 
     public Task<IEnumerable<Product>> GetByShopIdWithPartsAsync(Guid shopId, CancellationToken ct = default)
     {
-        return GetByShopIdAsync(shopId, ct);
-    }
-
-    public Task<IEnumerable<Product>> SearchByNameAsync(Guid shopId, string searchTerm, CancellationToken ct = default)
-    {
         var products = _products.Values
-            .Where(p => p.ShopId == shopId && p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
+            .Where(p => p.ShopId == shopId)
             .ToList();
         return Task.FromResult<IEnumerable<Product>>(products);
     }
@@ -48,6 +51,15 @@ public class InMemoryProductRepository : IProductRepository
     {
         var products = _products.Values
             .Where(p => p.ShopId == shopId && p.ReorderPoint.HasValue && p.InventoryOnHand < p.ReorderPoint.Value)
+            .ToList();
+        return Task.FromResult<IEnumerable<Product>>(products);
+    }
+
+    public Task<IEnumerable<Product>> SearchByNameAsync(Guid shopId, string searchTerm, CancellationToken ct = default)
+    {
+        var products = _products.Values
+            .Where(p => p.ShopId == shopId &&
+                       p.Name.Contains(searchTerm, StringComparison.OrdinalIgnoreCase))
             .ToList();
         return Task.FromResult<IEnumerable<Product>>(products);
     }
@@ -67,7 +79,7 @@ public class InMemoryProductRepository : IProductRepository
 
     public Task DeleteAsync(Guid id, CancellationToken ct = default)
     {
-        _products.Remove(id);
+        _products.TryRemove(id, out _);
         return Task.CompletedTask;
     }
 }
