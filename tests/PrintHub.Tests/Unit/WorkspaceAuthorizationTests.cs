@@ -1,3 +1,4 @@
+using Xunit;
 using FluentAssertions;
 using Moq;
 using PrintHub.Core.Auth;
@@ -29,7 +30,7 @@ public class WorkspaceAuthorizationTests
             .ReturnsAsync((Workspace?)null);
 
         repository.Setup(r => r.GetMemberAsync(workspaceId, It.IsAny<Guid>(), It.IsAny<CancellationToken>()))
-            .ReturnsAsync((Guid userId, CancellationToken _) =>
+            .ReturnsAsync((Guid _, Guid userId, CancellationToken __) =>
             {
                 var match = members.FirstOrDefault(m => m.userId == userId);
                 if (match == default)

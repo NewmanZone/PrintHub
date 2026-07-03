@@ -20,6 +20,13 @@ public class WorkspaceAuthorizationService : IWorkspaceAuthorizationService
         if (!_currentUser.IsAuthenticated)
             return false;
 
+        var workspace = await _workspaceRepository.GetByIdAsync(workspaceId, cancellationToken);
+        if (workspace is null)
+            return false;
+
+        if (workspace.OwnerUserId == _currentUser.UserId!.Value)
+            return true;
+
         var member = await _workspaceRepository.GetMemberAsync(workspaceId, _currentUser.UserId!.Value, cancellationToken);
         return member is { RemovedAt: null };
     }
