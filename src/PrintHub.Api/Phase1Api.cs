@@ -11,6 +11,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using Azure.Storage.Blobs;
 using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
@@ -68,7 +69,7 @@ public static class Phase1Api
         app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "printhub-api" }));
         app.MapGet("/", () => Results.Ok(new { service = "PrintHub API", version = "1.0.0" }));
         app.MapGet("/api/me", () => Results.Ok(PrintHubDefaults.User));
-        app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
+        app.MapGet("/api/etsy/connection", [Authorize] async (IPrintHubStore store, CancellationToken ct) =>
         {
             var state = await store.ReadAsync(ct);
             return Results.Ok(state.EtsyConnection?.ToResponse());
