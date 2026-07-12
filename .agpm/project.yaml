@@ -1,0 +1,50 @@
+version: 1
+
+project:
+  name: PrintHub
+  repository: NewmanZone/PrintHub
+
+goals:
+  - Deliver a shared Etsy production workspace for preparing 3D-print files.
+  - Support OAuth sign-in, workspace contributors, Etsy synchronization, and product file versioning.
+  - Generate downloadable order bundles and manifests for manual printing in Phase 1.
+
+canonical_docs:
+  - README.md
+  - DESIGN/phase-1-shared-workspace.md
+  - DESIGN/architecture.md
+  - DESIGN/api-design.md
+  - DESIGN/data-model.md
+  - DESIGN/security.md
+  - DESIGN/ui-architecture.md
+  - DESIGN/frontend-design-system.md
+
+planning_doc: ISSUES_EXECUTION_PLAN.md
+
+checks:
+  - name: backend
+    command: dotnet test PrintHub.sln --configuration Release
+  - name: frontend-tests
+    command: npm run test -- --run
+    working_directory: frontend
+  - name: frontend-build
+    command: npm run build
+    working_directory: frontend
+
+risk_policy:
+  owner_approval_required:
+    - merge_or_deploy
+    - secrets_or_credentials
+    - destructive_git_operations
+    - branch_deletion
+    - force_push
+    - production_infrastructure_changes
+    - phase_1_scope_expansion
+  phase_1_exclusions:
+    - direct_printer_submission
+    - live_printer_status
+    - automatic_printer_queues
+    - bambu_or_octoeverywhere_integration
+    - inventory_forecasting
+    - billing
+    - multi_shop_subscriptions

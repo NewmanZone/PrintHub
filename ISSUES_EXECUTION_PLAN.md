@@ -421,7 +421,7 @@ Acceptance criteria:
 - Phase 1 happy path is demonstrable from sign-in through manual bundle completion.
 - Tests cover primary failure states.
 - Documentation and implementation agree.
-- CI is green.
+- Required automated checks pass.
 
 Verification proof:
 
