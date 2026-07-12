@@ -17,6 +17,8 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PrintHub.Core.Interfaces.Services;
 using PrintHub.Core.Interfaces.Auth;
+using PrintHub.Core.Entities;
+using PrintHub.Core.Enums;
 using PrintHub.Infrastructure.Auth;
 using PrintHub.Infrastructure.Services;
 
@@ -84,6 +86,52 @@ public static class Phase1Api
                 new AuthUserResponse(current!.User.Id, current.User.Email, current.User.DisplayName),
                 current.Workspaces.Select(x => new AuthWorkspaceResponse(x.Id, x.Name, x.Role.ToString()))));
         }).RequireAuthorization();
+        var workspaces = app.MapGroup("/workspaces").RequireAuthorization();
+        workspaces.MapGet("/", async (ICurrentUserService currentUser, CancellationToken ct) =>
+        {
+            var current = await currentUser.GetAsync(ct);
+            return Results.Ok(current!.Workspaces.Select(ToWorkspaceResponse));
+        });
+        workspaces.MapPost("/", async (CreateWorkspaceRequest request, ICurrentUserService currentUser, IWorkspaceRepository repository, CancellationToken ct) =>
+        {
+            var name = request.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["name"] = ["Workspace name is required."] });
+
+            var current = await currentUser.GetAsync(ct);
+            var now = DateTime.UtcNow;
+            var workspace = new Workspace
+            {
+                Id = Guid.NewGuid(), Name = name, OwnerUserId = current!.User.Id, CreatedAt = now, UpdatedAt = now
+            };
+            var ownerMembership = new WorkspaceMember
+            {
+                Id = Guid.NewGuid(), WorkspaceId = workspace.Id, UserId = current.User.Id,
+                Role = WorkspaceRole.Owner, AcceptedAt = now, CreatedAt = now
+            };
+            await repository.CreateAsync(workspace, ownerMembership, ct);
+            return Results.Created($"/workspaces/{workspace.Id}", ToWorkspaceResponse(workspace, WorkspaceRole.Owner));
+        });
+        workspaces.MapGet("/{workspaceId:guid}", async (Guid workspaceId, IWorkspaceAuthorizationService authorization, IWorkspaceRepository repository, CancellationToken ct) =>
+        {
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
+            var workspace = (await repository.GetByIdAsync(workspaceId, ct))!;
+            var members = await repository.GetMembersAsync(workspaceId, ct);
+            return Results.Ok(new WorkspaceDetailResponse(workspace.Id, workspace.Name, workspace.OwnerUserId,
+                members.Count(x => x.AcceptedAt.HasValue && !x.RemovedAt.HasValue)));
+        });
+        workspaces.MapPut("/{workspaceId:guid}", async (Guid workspaceId, UpdateWorkspaceRequest request, IWorkspaceAuthorizationService authorization, IWorkspaceRepository repository, CancellationToken ct) =>
+        {
+            if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+            var name = request.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(name))
+                return Results.ValidationProblem(new Dictionary<string, string[]> { ["name"] = ["Workspace name is required."] });
+            var workspace = (await repository.GetByIdAsync(workspaceId, ct))!;
+            workspace.Name = name;
+            workspace.UpdatedAt = DateTime.UtcNow;
+            await repository.UpdateAsync(workspace, ct);
+            return Results.Ok(ToWorkspaceResponse(workspace, WorkspaceRole.Owner));
+        });
         app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
         {
             var state = await store.ReadAsync(ct);
@@ -133,6 +181,12 @@ public static class Phase1Api
         return app;
     }
 
+    private static WorkspaceResponse ToWorkspaceResponse(CurrentUserWorkspace workspace) =>
+        new(workspace.Id, workspace.Name, workspace.Role.ToString());
+
+    private static WorkspaceResponse ToWorkspaceResponse(Workspace workspace, WorkspaceRole role) =>
+        new(workspace.Id, workspace.Name, role.ToString());
+
     private static async Task<IResult> UploadProductFileAsync(Guid productId, HttpRequest request, IPrintHubStore store, IProductRepository products, IPrintHubFileStorage fileStorage, CancellationToken ct)
     {
         if (!request.HasFormContentType) return Results.BadRequest(new { error = "Expected multipart form upload." });
@@ -163,6 +217,10 @@ public sealed record CurrentUserResponse(Guid UserId, Guid WorkspaceId, string D
 public sealed record AuthMeResponse(AuthUserResponse User, IEnumerable<AuthWorkspaceResponse> Workspaces);
 public sealed record AuthUserResponse(Guid Id, string Email, string DisplayName);
 public sealed record AuthWorkspaceResponse(Guid Id, string Name, string Role);
+public sealed record CreateWorkspaceRequest(string? Name);
+public sealed record UpdateWorkspaceRequest(string? Name);
+public sealed record WorkspaceResponse(Guid Id, string Name, string Role);
+public sealed record WorkspaceDetailResponse(Guid Id, string Name, Guid OwnerUserId, int MemberCount);
 
 public static class PrintHubDefaults
 {
