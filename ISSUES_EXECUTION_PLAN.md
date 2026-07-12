@@ -5,7 +5,6 @@
 Generated: maintained by OpenClaw PM
 Repo: NewmanZone/PrintHub  
 Planning document: `ISSUES_EXECUTION_PLAN.md`  
-Current planning source: `origin/pm/docs-plan:ISSUES_EXECUTION_PLAN.md`
 
 ## Phase 1 Goal
 
@@ -22,37 +21,13 @@ Phase 1 is the shared Etsy file-preparation workspace:
 
 Bambu, OctoEverywhere, direct printer submission, live printer status, automatic printer queues, inventory forecasting, billing, and multi-shop subscriptions are later-phase work. They must stay out of the active Phase 1 plan unless the owner explicitly re-scopes the product.
 
-## Current Implementation Status
+## Current Implementation Baseline
 
-The repo documentation describes a focused Phase 1 product: OAuth-only auth, shared workspaces, Etsy connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal, but the backend Etsy/shop foundation has moved forward since the original baseline review.
+The durable repo documentation describes a focused Phase 1 product: OAuth-only auth, shared workspaces, Etsy connection, product/file library, Etsy order sync, and manual preparation bundles. The implementation is still behind that documented end goal, but the backend Etsy/shop foundation has moved forward since the original baseline review.
 
-Current repo state from the latest PM snapshot:
+This plan intentionally avoids hardcoding volatile GitHub state. Current PR numbers, branch health, live CI conclusions, deployment run status, and merge decisions belong in PM run output or PR comments checked at the time of action, not in this durable planning document.
 
-- Default branch: `main`
-- Open PRs:
-  - `#31 [PM Docs] Update PrintHub planning docs`
-    - Branch: `pm/docs-plan`
-    - Purpose: documentation/planning lane
-    - Live merge state, changed files, review threads, and check status must be verified by PM gates before merge.
-- Recently merged or no longer open:
-  - PR `#30`
-  - PR `#32`
-  - PR `#33`
-- Open branches observed:
-  - `codex/pm-newmanzone__printhub-20260703t063416z`
-  - `codex/pm-newmanzone__printhub-20260703t090148z`
-  - `feat/issue-9-queue-planning`
-  - `fix/issue-2`
-  - `fix/issue-3`
-  - `fix/issue-14`
-  - `main`
-  - `pm/docs-plan`
-- Open GitHub issues `#5-#19` remain stale relative to this plan.
-- Latest supplied local branch-health state reports no blocking findings for the checked local state.
-- No current source path structural blocker is reported, but .NET project naming drift remains a planning and agent-routing risk.
-- Recent Azure deployment runs on `main` have failed while normal CI has been passing; PM gates must verify live check state before merging or starting deploy work.
-
-Implemented or partially implemented on `main` after PR `#30`, PR `#32`, and PR `#33` merged:
+Implemented or partially implemented in the current Phase 1 baseline:
 
 - Etsy shop/service plumbing.
 - Etsy API service and fake Etsy service.
@@ -64,7 +39,7 @@ Implemented or partially implemented on `main` after PR `#30`, PR `#32`, and PR 
 - Product sync foundation.
 - Dependency injection wiring and coverage.
 - Tests for Etsy API service, shop service, shops controller, auth pipeline behavior, token encryption, and DI resolution.
-- Project/runtime support changes including `global.json`, project files, API Dockerfile updates, and related CI/deploy plumbing.
+- Project/runtime support changes including `global.json`, project files, API Dockerfile updates, and related build/deployment plumbing.
 
 Not yet complete for the documented Phase 1 end goal:
 
@@ -88,29 +63,23 @@ Not yet complete for the documented Phase 1 end goal:
 | OAuth-only authentication with no PrintHub password registration/login/reset. | Intended requirement | Documented in README, API design, data model, and security docs. | Implement JWT validation, `/auth/me`, and profile bootstrap. Reject password-based auth additions. |
 | Shared workspace with contributors is central to Phase 1. | Intended requirement | Documented, but not implemented yet. | Prioritize workspace model and authorization before dependent domain work. |
 | Source STL/3MF retention by default with user-controlled delete/purge. | Intended requirement | Documented, but not implemented yet. | Include retention, delete, purge, and signed/private download behavior in file-storage acceptance criteria. |
-| PR `#30`, PR `#32`, and PR `#33` are merged but older planning text treated them as pending blockers. | Unintended divergence | PR `#31` is the docs-lane update intended to correct this. | Complete final PR `#31` gates without hardcoding volatile head/check evidence in this plan. |
-| Open issues `#5-#19` still reflect older broad scope and include printer/mock UI/inventory work. | Unintended divergence | GitHub issue queue is stale relative to the documented Phase 1 issue queue. | Replace, close, or retarget stale issues after owner approval. |
+| Legacy issue queue includes older broad scope and may include printer/mock UI/inventory work. | Unintended divergence | GitHub issues should be reconciled against this Phase 1 plan using live PM state. | Replace, close, or retarget stale issues after owner approval. |
 | `DESIGN/dotnet-structure.md` describes `PrintHub.API` and split test projects, while observed structure includes `src/PrintHub.Api` and `tests/PrintHub.Tests`. | Unintended divergence | Naming/test layout drift may confuse agents and future PRs. | Decide canonical casing/layout, then align docs and project structure before broad feature work. |
-| README architecture block is empty/truncated. | Unintended divergence | README lacks a useful architecture diagram. | Fill or remove the empty block during docs cleanup. |
-| Azure deployment workflow is failing while CI passes. | Needs owner decision | Recent deploy runs on `main` failed. | Decide whether Azure deploy is an active Phase 1 blocker now or later release hardening. |
-| Historical branches `feat/issue-9-queue-planning`, `fix/issue-2`, `fix/issue-3`, `fix/issue-14`, and PM branches remain open. | Needs owner decision | They may be obsolete after merges, but branch deletion needs approval. | Inspect and prune only after owner approval. |
+| Azure deployment readiness. | Needs owner decision | Deployment status changes frequently and must be checked live. | Decide whether Azure deploy is an active Phase 1 blocker now or later release hardening. |
+| Historical branches may remain open. | Needs owner decision | Branch status changes frequently and deletion needs approval. | Inspect and prepare pruning recommendations only after owner approval. |
 | `Viewer` role appears in data model guidance but may be optional for Phase 1. | Needs owner decision | Owner and contributor are clearly required; viewer may add extra scope. | Decide whether Phase 1 includes Viewer or defers it. |
 
 ## Active Blockers And Gates
 
-Normal feature work should start only after these gates are handled or explicitly waived.
+Normal feature work should start only after these durable planning gates are handled or explicitly waived.
 
-- [ ] Complete final PR `#31` review gates so the repo-owned plan becomes current on `main`.
-  - Confirm PR `#31` contains current `main`.
-  - Confirm branch-health has no blockers.
-  - Confirm only `ISSUES_EXECUTION_PLAN.md` is changed.
-  - Confirm the planning doc reflects that PR `#30`, PR `#32`, and PR `#33` are merged.
-  - Confirm GitHub CI is green on the current PR head by checking live state, not this document.
-  - Confirm no active unresolved blocking review threads remain.
-  - If all gates remain green, allow autonomous completion under the current auto-merge policy.
+- [ ] Keep this planning document current with the Phase 1 product baseline.
+  - Keep live PR numbers, branch status, CI conclusions, deployment status, and merge decisions out of durable plan text.
+  - Record those live facts in PM run output after checking GitHub at the time of action.
+  - Keep this plan focused on stable product scope, dependency order, acceptance criteria, and verification expectations.
 
-- [ ] Reconcile the stale issue queue.
-  - Stale issues `#5-#19` should be closed, retargeted, or replaced with small Phase 1 issues.
+- [ ] Reconcile the legacy issue queue.
+  - Stale broad issues should be closed, retargeted, or replaced with small Phase 1 issues.
   - Owner approval is required before rewriting the live issue queue.
   - Printer, inventory, and broad mock-frontend issues should move to later-phase tracking or be closed as superseded.
 
@@ -119,66 +88,57 @@ Normal feature work should start only after these gates are handled or explicitl
   - Decide whether `tests/PrintHub.Tests` remains the Phase 1 test project or whether split test projects are required later.
   - Update docs and solution/project references to one convention.
 
-- [ ] Triage Azure deploy failure.
-  - Capture the failing workflow job and step.
+- [ ] Triage Azure deploy readiness.
+  - Check the current workflow runs live if deployment is in scope.
+  - Capture any failing workflow job and step in PM run output.
   - Decide whether deployment repair is in scope for the next PM cycle.
   - Keep Azure release hardening out of normal feature work unless explicitly approved.
 
 - [ ] Inspect old branches before pruning.
-  - `feat/issue-9-queue-planning`
-  - `fix/issue-2`
-  - `fix/issue-3`
-  - `fix/issue-14`
-  - `codex/pm-newmanzone__printhub-20260703t063416z`
-  - `codex/pm-newmanzone__printhub-20260703t090148z`
+  - Check live branch lists at the time of the PM cycle.
+  - Compare each branch against current `main`.
+  - Prepare a non-destructive pruning recommendation for owner approval.
 
 ## Immediate Next PM Focus
 
 Next 2-hour cycle:
 
-- [ ] Confirm PR `#31` is docs-only and changes only `ISSUES_EXECUTION_PLAN.md`.
-- [ ] Confirm PR `#31` live CI remains green and live merge state remains clean.
-- [ ] Confirm no unresolved blocking review threads remain.
-- [ ] Complete autonomous merge or auto-merge if all policy gates pass.
-- [ ] Record `main` head and CI/deploy status after PR `#31` lands in PM run output, not as permanent volatile plan text.
-- [ ] Prepare owner-facing stale issue action map for `#5-#19`.
+- [ ] Check live GitHub PR, branch, review-thread, CI, and deploy state in the PM run.
+- [ ] Record live `main` head and CI/deploy status in PM run output, not in this plan.
+- [ ] Prepare owner-facing stale issue action map from the live issue queue.
 - [ ] Recommend the first implementation lane after planning lands: OAuth-only `/auth/me` bootstrap first, then workspace authorization/member foundations.
 
 Expected proof at end of cycle:
 
-- PR `#31` status, changed-file list, review-thread status, and live CI conclusion.
-- Merge or auto-merge result for PR `#31`, or specific blocker if it cannot land.
+- Live PR status, changed-file list, review-thread status, and CI conclusion for any active planning PR.
+- Merge or auto-merge result for the active planning PR, or specific blocker if it cannot land.
 - Current `main` head and CI/deploy status recorded in PM cycle output.
-- Proposed issue action list for `#5-#19`.
+- Proposed issue action list from the live issue queue.
 - Recommended first implementation issue with dependencies and acceptance criteria.
 
 ## Prioritized Phase 1 Work Items
 
 ### P0: Planning, PR, CI, And Repo Structure Stabilization
 
-- [ ] Complete PR `#31` planning-doc lane.
-- [ ] Confirm merged/closed status of PR `#30`, PR `#32`, and PR `#33`.
-- [ ] Confirm `main` CI is green after PR `#31` lands.
-- [ ] Triage current Azure deploy failure and decide whether it is in scope now.
+- [ ] Keep durable planning text free of volatile PR numbers, branch assertions, CI conclusions, and deployment run conclusions.
+- [ ] Check live PR, branch, review-thread, CI, and deploy state only in PM run output.
+- [ ] Triage current Azure deploy readiness and decide whether it is in scope now.
 - [ ] Resolve `PrintHub.Api` versus `PrintHub.API` documentation/project naming drift.
-- [ ] Fix README architecture block.
-- [ ] Prepare issue reconciliation proposal for stale issues `#5-#19`.
-- [ ] Inspect old branches and prepare pruning recommendation.
+- [ ] Prepare issue reconciliation proposal for the stale legacy issue queue.
+- [ ] Inspect old branches live and prepare a non-destructive pruning recommendation.
 
 Acceptance criteria:
 
 - `ISSUES_EXECUTION_PLAN.md` on `main` is current enough for recurring PM cycles.
-- Live `main` CI status is recorded in PM run output.
+- Live `main` CI status, branch status, and deploy status are recorded in PM run output, not durable planning text.
 - Azure deploy is either green, explicitly out of scope, or represented by a concrete follow-up issue.
 - Documentation uses one backend project naming convention.
-- README no longer has an empty architecture block.
 - Issue reconciliation proposal is ready for owner approval.
 - Branch pruning recommendation is owner-ready and non-destructive.
 
 Verification proof:
 
-- PR links and current head/check status recorded by the PM run.
-- CI and deploy run conclusions checked live.
+- PR links, current head/check status, CI conclusions, and deploy run conclusions recorded by the PM run.
 - Diff summary for docs/project naming cleanup.
 - Proposed issue action table.
 - Branch inspection summary.
@@ -461,7 +421,7 @@ Acceptance criteria:
 - Phase 1 happy path is demonstrable from sign-in through manual bundle completion.
 - Tests cover primary failure states.
 - Documentation and implementation agree.
-- CI is green.
+- Required automated checks pass.
 
 Verification proof:
 
@@ -528,24 +488,24 @@ issues:
     wait_for: [110, 111, 112]
 ```
 
-## Stale Issue Reconciliation Proposal
+## Legacy Issue Reconciliation Proposal
 
-Do not mutate these issues until the owner approves the rewrite.
+Do not mutate live issues until the owner approves the rewrite. The live issue numbers and statuses should be checked during the PM run, then mapped to these durable action categories.
 
-| Existing Issue | Proposed Action | Reason |
+| Legacy Issue Theme | Proposed Action | Reason |
 | --- | --- | --- |
-| `#5 Data: implement Cosmos DB containers, tenant model, and repository foundation` | Retarget into issue 103 or close as superseded after replacement. | Too broad and tied to older tenant wording; workspace authorization needs sharper Phase 1 acceptance criteria. |
-| `#6 Backend: implement OAuth/B2C authentication and current-user API contract` | Retarget into issue 102. | Still directionally valid, but needs OAuth-only lock and `/auth/me` acceptance criteria. |
-| `#7 Backend: implement Etsy shop OAuth connection and listing sync foundation` | Retarget into issue 105 or close as partially covered after confirming merged PR scope. | Backend foundation is now merged, but full workspace-scoped listing/order sync remains larger. |
-| `#10 Backend: implement printer adapter contract with Mock and OctoEverywhere/OctoPrint adapters` | Move to later phase or close as superseded. | Printer adapters are explicitly out of Phase 1. |
-| `#11 Frontend: build public landing page and demo workspace entry` | Retarget into issue 110. | Keep OAuth entry; avoid demo workspace if it conflicts with real auth/workspace flow. |
-| `#12 Frontend: build dashboard and queue planning pages with mock data` | Retarget into issues 109 and 112. | Queue wording is stale; Phase 1 needs manual preparation/order bundle UI. |
-| `#13 Frontend: build products, product detail, parts, and file version pages with mock data` | Retarget into issue 111. | Directionally valid but should depend on product/file API contracts. |
-| `#14 Frontend: build printers, settings, orders, and jobs workspace pages with mock data` | Split or close as superseded. | Settings/orders remain valid; printers/jobs are later phase. |
-| `#16 Backend: implement inventory movements, cost records, alerts, and insights dashboard` | Move to later phase or close as superseded. | Inventory/cost analytics are out of Phase 1. |
-| `#17 Backend: implement personalized Etsy orders sync and queue handoff` | Retarget into issues 105 and 108. | Personalization and order sync remain valid; queue handoff should become manual bundle preparation. |
-| `#18 Frontend: wire real API clients, OAuth flow, and authenticated data loading` | Retarget across issues 109-112. | Too broad as one issue; should be split by user workflow. |
-| `#19 Infra: add Azure deployment, managed identity config, secrets, and operational docs` | Keep for later Phase 1 hardening or split after core workflows exist. | Infra is needed before production, but should not block early product workflow implementation unless required by auth/storage. |
+| Data persistence, tenant model, and repositories | Retarget into issue 103 or close as superseded after replacement. | Too broad and tied to older tenant wording; workspace authorization needs sharper Phase 1 acceptance criteria. |
+| OAuth/B2C authentication and current-user API contract | Retarget into issue 102. | Still directionally valid, but needs OAuth-only lock and `/auth/me` acceptance criteria. |
+| Etsy shop OAuth connection and listing sync foundation | Retarget into issue 105 or close as partially covered after confirming current baseline scope. | Backend foundation exists, but full workspace-scoped listing/order sync remains larger. |
+| Printer adapter contracts and direct printer integrations | Move to later phase or close as superseded. | Printer adapters are explicitly out of Phase 1. |
+| Public landing page and demo workspace entry | Retarget into issue 110. | Keep OAuth entry; avoid demo workspace if it conflicts with real auth/workspace flow. |
+| Dashboard and queue planning pages with mock data | Retarget into issues 109 and 112. | Queue wording is stale; Phase 1 needs manual preparation/order bundle UI. |
+| Products, product detail, parts, and file version pages | Retarget into issue 111. | Directionally valid but should depend on product/file API contracts. |
+| Printers, settings, orders, and jobs workspace pages | Split or close as superseded. | Settings/orders remain valid; printers/jobs are later phase. |
+| Inventory movements, cost records, alerts, and insights dashboard | Move to later phase or close as superseded. | Inventory/cost analytics are out of Phase 1. |
+| Personalized Etsy orders sync and queue handoff | Retarget into issues 105 and 108. | Personalization and order sync remain valid; queue handoff should become manual bundle preparation. |
+| Real API clients, OAuth flow, and authenticated data loading | Retarget across issues 109-112. | Too broad as one issue; should be split by user workflow. |
+| Azure deployment, managed identity config, secrets, and operational docs | Keep for later Phase 1 hardening or split after core workflows exist. | Infra is needed before production, but should not block early product workflow implementation unless required by auth/storage. |
 
 ## Parallelization Guidance
 
@@ -578,8 +538,7 @@ Docs-only PRs may record that source tests were not run when the changed-file sc
 
 ## Open Questions For Owner
 
-- Should PR `#31` be merged automatically if final docs-only, branch-health, CI, and review-thread gates remain green?
-- Should stale issues `#5-#19` be rewritten in place, closed and replaced, or left open with comments pointing to the new plan?
+- Should stale issues be rewritten in place, closed and replaced, or left open with comments pointing to the new plan?
 - Is Azure deployment currently a Phase 1 blocker, or should deploy failures be tracked separately until product workflows are closer?
 - Should Phase 1 include a `Viewer` role, or only `Owner` and `Contributor`?
 - Should old branches be pruned after confirming their work merged or became obsolete?
