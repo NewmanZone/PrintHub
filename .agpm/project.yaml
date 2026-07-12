@@ -1,3 +1,4 @@
+---
 version: 1
 
 project:
@@ -6,8 +7,12 @@ project:
 
 goals:
   - Deliver a shared Etsy production workspace for preparing 3D-print files.
-  - Support OAuth sign-in, workspace contributors, Etsy synchronization, and product file versioning.
-  - Generate downloadable order bundles and manifests for manual printing in Phase 1.
+  - >-
+    Support OAuth sign-in, workspace contributors, Etsy synchronization, and
+    product file versioning.
+  - >-
+    Generate downloadable order bundles and manifests for manual printing in
+    Phase 1.
 
 canonical_docs:
   - README.md
