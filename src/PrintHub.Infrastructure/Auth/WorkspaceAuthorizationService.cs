@@ -28,7 +28,7 @@ public class WorkspaceAuthorizationService : IWorkspaceAuthorizationService
             return true;
 
         var member = await _workspaceRepository.GetMemberAsync(workspaceId, _currentUser.UserId!.Value, cancellationToken);
-        return member is { RemovedAt: null };
+        return member is { AcceptedAt: not null, RemovedAt: null };
     }
 
     public async Task<bool> IsInRoleAsync(Guid workspaceId, WorkspaceRole requiredRole, CancellationToken cancellationToken = default)
@@ -45,7 +45,7 @@ public class WorkspaceAuthorizationService : IWorkspaceAuthorizationService
             return true; // Owner implicitly has all roles.
 
         var member = await _workspaceRepository.GetMemberAsync(workspaceId, userId, cancellationToken);
-        if (member is null || member.RemovedAt.HasValue)
+        if (member is null || !member.AcceptedAt.HasValue || member.RemovedAt.HasValue)
             return false;
 
         return member.Role <= requiredRole;
