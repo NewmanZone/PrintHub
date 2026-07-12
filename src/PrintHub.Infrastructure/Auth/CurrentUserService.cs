@@ -25,22 +25,12 @@ public sealed class CurrentUserService(
         var email = principal.FindFirstValue(ClaimTypes.Email) ?? principal.FindFirstValue("email") ?? string.Empty;
         var displayName = principal.FindFirstValue(ClaimTypes.Name) ?? principal.FindFirstValue("name") ?? email;
 
-        var user = await users.GetByExternalAuthSubjectAsync(subject, cancellationToken);
-        if (user is null)
+        var now = DateTime.UtcNow;
+        var user = await users.UpsertByExternalAuthSubjectAsync(new User
         {
-            user = await users.AddAsync(new User
-            {
-                Id = Guid.NewGuid(), ExternalAuthSubject = subject, Email = email,
-                DisplayName = displayName, CreatedAt = DateTime.UtcNow, UpdatedAt = DateTime.UtcNow
-            }, cancellationToken);
-        }
-        else if (user.Email != email || user.DisplayName != displayName)
-        {
-            user.Email = email;
-            user.DisplayName = displayName;
-            user.UpdatedAt = DateTime.UtcNow;
-            await users.UpdateAsync(user, cancellationToken);
-        }
+            Id = Guid.NewGuid(), ExternalAuthSubject = subject, Email = email,
+            DisplayName = displayName, CreatedAt = now, UpdatedAt = now
+        }, cancellationToken);
 
         var owned = await workspaces.GetOwnedByUserAsync(user.Id, cancellationToken);
         var memberships = await workspaces.GetMembershipsForUserAsync(user.Id, cancellationToken);
