@@ -20,6 +20,8 @@ canonical_docs:
   - DESIGN/architecture.md
   - DESIGN/api-design.md
   - DESIGN/data-model.md
+  - DESIGN/cosmos-design.md
+  - DESIGN/dotnet-structure.md
   - DESIGN/security.md
   - DESIGN/ui-architecture.md
   - DESIGN/frontend-design-system.md
