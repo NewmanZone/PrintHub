@@ -35,6 +35,9 @@ checks:
   - name: frontend-build
     command: npm run build
     working_directory: frontend
+  - name: frontend-e2e
+    command: npm run test:e2e
+    working_directory: frontend
 
 risk_policy:
   owner_approval_required:
