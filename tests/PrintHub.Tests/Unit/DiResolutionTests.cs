@@ -7,6 +7,8 @@ using PrintHub.Core.Interfaces.Services;
 using PrintHub.Infrastructure.Repositories;
 using PrintHub.Infrastructure.Services;
 using PrintHub.Infrastructure.Services.Etsy;
+using PrintHub.Core.Interfaces.Auth;
+using PrintHub.Infrastructure.Auth;
 using Xunit;
 
 namespace PrintHub.Tests.Unit;
@@ -75,5 +77,16 @@ public class DiResolutionTests : IClassFixture<WebApplicationFactory<Program>>
         var config = scope.ServiceProvider.GetService<EtsyConfiguration>();
         config.Should().NotBeNull();
         config!.BaseUrl.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void AuthenticationAndWorkspaceServices_CanBeResolved()
+    {
+        using var scope = _factory.Services.CreateScope();
+        scope.ServiceProvider.GetRequiredService<IUserRepository>().Should().BeOfType<InMemoryUserRepository>();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceRepository>().Should().BeOfType<InMemoryWorkspaceRepository>();
+        scope.ServiceProvider.GetRequiredService<ICurrentUserService>().Should().BeOfType<CurrentUserService>();
+        scope.ServiceProvider.GetRequiredService<ICurrentUserContext>().Should().BeOfType<HttpCurrentUserContext>();
+        scope.ServiceProvider.GetRequiredService<IWorkspaceAuthorizationService>().Should().BeOfType<WorkspaceAuthorizationService>();
     }
 }

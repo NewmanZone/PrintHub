@@ -16,8 +16,9 @@ using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.Extensions.Options;
 using PrintHub.Core.Interfaces.Services;
+using PrintHub.Core.Interfaces.Auth;
+using PrintHub.Infrastructure.Auth;
 using PrintHub.Infrastructure.Services;
-using PrintHub.Infrastructure.Repositories;
 
 namespace PrintHub.Api;
 
@@ -49,6 +50,12 @@ public static class Phase1Api
         services.AddSingleton<IProductRepository, InMemoryProductRepository>();
         services.AddSingleton<IPartRepository, InMemoryPartRepository>();
         services.AddSingleton<IPrintFileRepository, InMemoryPrintFileRepository>();
+        services.AddHttpContextAccessor();
+        services.AddSingleton<IUserRepository, InMemoryUserRepository>();
+        services.AddSingleton<IWorkspaceRepository, InMemoryWorkspaceRepository>();
+        services.AddScoped<ICurrentUserService, CurrentUserService>();
+        services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
+        services.AddScoped<IWorkspaceAuthorizationService, WorkspaceAuthorizationService>();
         services.AddSingleton<ITokenEncryptionService>(sp => 
             new AesTokenEncryptionService(configuration["TokenEncryption:Key"] 
                 ?? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))));
@@ -70,7 +77,13 @@ public static class Phase1Api
     {
         app.MapGet("/health", () => Results.Ok(new { status = "ok", service = "printhub-api" }));
         app.MapGet("/", () => Results.Ok(new { service = "PrintHub API", version = "1.0.0" }));
-        app.MapGet("/api/me", () => Results.Ok(PrintHubDefaults.User));
+        app.MapGet("/auth/me", async (ICurrentUserService currentUser, CancellationToken ct) =>
+        {
+            var current = await currentUser.GetAsync(ct);
+            return Results.Ok(new AuthMeResponse(
+                new AuthUserResponse(current!.User.Id, current.User.Email, current.User.DisplayName),
+                current.Workspaces.Select(x => new AuthWorkspaceResponse(x.Id, x.Name, x.Role.ToString()))));
+        }).RequireAuthorization();
         app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
         {
             var state = await store.ReadAsync(ct);
@@ -147,6 +160,9 @@ public static class Phase1Api
 }
 
 public sealed record CurrentUserResponse(Guid UserId, Guid WorkspaceId, string DisplayName, string Email);
+public sealed record AuthMeResponse(AuthUserResponse User, IEnumerable<AuthWorkspaceResponse> Workspaces);
+public sealed record AuthUserResponse(Guid Id, string Email, string DisplayName);
+public sealed record AuthWorkspaceResponse(Guid Id, string Name, string Role);
 
 public static class PrintHubDefaults
 {
@@ -235,6 +251,8 @@ public static class PrintHubAuthDefaults
 {
     public const string Scheme = "PrintHubHeader";
     public const string UserIdHeader = "X-User-Id";
+    public const string EmailHeader = "X-User-Email";
+    public const string DisplayNameHeader = "X-User-Name";
 }
 
 public sealed class PrintHubHeaderAuthenticationHandler(
@@ -259,10 +277,14 @@ public sealed class PrintHubHeaderAuthenticationHandler(
             return Task.FromResult(AuthenticateResult.NoResult());
         }
 
+        var email = Request.Headers[PrintHubAuthDefaults.EmailHeader].FirstOrDefault() ?? string.Empty;
+        var displayName = Request.Headers[PrintHubAuthDefaults.DisplayNameHeader].FirstOrDefault() ?? email;
         var claims = new[]
         {
+            new Claim("sub", userId.ToString()),
             new Claim(ClaimTypes.NameIdentifier, userId.ToString()),
-            new Claim(ClaimTypes.Name, userId.ToString())
+            new Claim(ClaimTypes.Name, displayName),
+            new Claim(ClaimTypes.Email, email)
         };
         var identity = new ClaimsIdentity(claims, Scheme.Name);
         return Task.FromResult(AuthenticateResult.Success(new AuthenticationTicket(new ClaimsPrincipal(identity), Scheme.Name)));

@@ -41,6 +41,7 @@ public class WorkspaceAuthorizationTests
                     WorkspaceId = workspaceId,
                     UserId = userId,
                     Role = match.role,
+                    AcceptedAt = DateTime.UtcNow,
                     RemovedAt = match.removedAt
                 };
             });
@@ -101,6 +102,22 @@ public class WorkspaceAuthorizationTests
         var result = await service.IsMemberAsync(workspaceId);
 
         result.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task PendingMember_IsMember_ReturnsFalse()
+    {
+        var userId = Guid.NewGuid();
+        var workspaceId = Guid.NewGuid();
+        var workspace = new Workspace { Id = workspaceId, OwnerUserId = Guid.NewGuid() };
+        var repo = new Mock<IWorkspaceRepository>();
+        repo.Setup(x => x.GetByIdAsync(workspaceId, It.IsAny<CancellationToken>())).ReturnsAsync(workspace);
+        repo.Setup(x => x.GetMemberAsync(workspaceId, userId, It.IsAny<CancellationToken>())).ReturnsAsync(
+            new WorkspaceMember { WorkspaceId = workspaceId, UserId = userId, AcceptedAt = null });
+
+        var service = new WorkspaceAuthorizationService(AuthenticatedUser(userId), repo.Object);
+
+        (await service.IsMemberAsync(workspaceId)).Should().BeFalse();
     }
 
     [Fact]
