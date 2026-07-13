@@ -27,6 +27,18 @@ public class InMemoryShopRepository : IShopRepository
         return Task.FromResult<IEnumerable<Shop>>(shops);
     }
 
+    public Task<IEnumerable<Shop>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken ct = default)
+    {
+        var shops = _shops.Values.ToList().Where(s => s.WorkspaceId == workspaceId).ToList();
+        return Task.FromResult<IEnumerable<Shop>>(shops);
+    }
+
+    public Task<Shop?> GetByWorkspaceAndExternalIdAsync(Guid workspaceId, string externalId, CancellationToken ct = default)
+    {
+        var shop = _shops.Values.FirstOrDefault(s => s.WorkspaceId == workspaceId && s.ExternalId == externalId);
+        return Task.FromResult(shop);
+    }
+
     public Task<Shop> AddAsync(Shop shop, CancellationToken ct = default)
     {
         _shops[shop.Id] = shop;

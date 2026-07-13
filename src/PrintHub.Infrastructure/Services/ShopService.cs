@@ -46,16 +46,13 @@ public class ShopService : IShopService
     public async Task<IEnumerable<ShopResponse>> GetShopsAsync(Guid userId)
     {
         var shops = await _shopRepository.GetByUserIdAsync(userId);
-        
-        return shops.Select(s => new ShopResponse
-        {
-            Id = s.Id,
-            Provider = s.Provider,
-            ExternalId = s.ExternalId,
-            ShopName = s.ShopName,
-            IsActive = s.IsActive,
-            LastSyncAt = s.LastSyncAt
-        });
+        return ToResponses(shops);
+    }
+
+    public async Task<IEnumerable<ShopResponse>> GetWorkspaceShopsAsync(Guid workspaceId)
+    {
+        var shops = await _shopRepository.GetByWorkspaceIdAsync(workspaceId);
+        return ToResponses(shops);
     }
 
     private string GetRedirectUri()
@@ -68,15 +65,25 @@ public class ShopService : IShopService
     }
 
     public async Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, string? returnUrl = null)
+        => await InitiateEtsyConnectAsync(userId, Guid.Empty, returnUrl);
+
+    public async Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, Guid workspaceId, string? returnUrl = null)
     {
-        _logger.LogInformation("Initiating Etsy OAuth flow for user {UserId}", userId);
+        _logger.LogInformation("Initiating Etsy OAuth flow for user {UserId} in workspace {WorkspaceId}", userId, workspaceId);
         
         // Generate state and PKCE verifier for OAuth security
         var state = Guid.NewGuid().ToString("N");
         var codeVerifier = GenerateCodeVerifier();
         
         // Store state with user context and PKCE verifier
-        _oauthStateStore.SaveState(state, userId.ToString(), returnUrl ?? string.Empty, TimeSpan.FromMinutes(10), codeVerifier);
+        if (workspaceId == Guid.Empty)
+        {
+            _oauthStateStore.SaveState(state, userId.ToString(), returnUrl ?? string.Empty, TimeSpan.FromMinutes(10), codeVerifier);
+        }
+        else
+        {
+            _oauthStateStore.SaveState(state, userId.ToString(), workspaceId, returnUrl ?? string.Empty, TimeSpan.FromMinutes(10), codeVerifier);
+        }
         
         // Build authorization URL with PKCE challenge
         var redirectUri = GetRedirectUri();
@@ -88,16 +95,36 @@ public class ShopService : IShopService
 
     public async Task<CallbackResponse> HandleEtsyCallbackAsync(string code, string state)
     {
-        _logger.LogInformation("Handling Etsy OAuth callback with state {State}", state);
-        
-        // Validate state and get user context + PKCE verifier
-        var (userIdStr, returnUrl, codeVerifier) = _oauthStateStore.GetState(state);
+        var (userIdStr, _, codeVerifier) = _oauthStateStore.GetState(state);
         if (string.IsNullOrEmpty(userIdStr) || !Guid.TryParse(userIdStr, out var userId))
         {
             _logger.LogWarning("Invalid or expired OAuth state: {State}", state);
             throw new InvalidOperationException("Invalid or expired OAuth state");
         }
+
+        return await CompleteEtsyCallbackAsync(userId, Guid.Empty, code, state, codeVerifier);
+    }
+
+    public async Task<CallbackResponse> HandleEtsyCallbackAsync(Guid userId, Guid workspaceId, string code, string state)
+    {
+        _logger.LogInformation("Handling Etsy OAuth callback with state {State}", state);
         
+        // Validate state and get user context + PKCE verifier
+        var (stateUserIdStr, stateWorkspaceId, _, codeVerifier) = _oauthStateStore.GetWorkspaceState(state);
+        if (string.IsNullOrEmpty(stateUserIdStr)
+            || !Guid.TryParse(stateUserIdStr, out var stateUserId)
+            || stateUserId != userId
+            || stateWorkspaceId != workspaceId)
+        {
+            _logger.LogWarning("Invalid or expired OAuth state: {State}", state);
+            throw new InvalidOperationException("Invalid or expired OAuth state");
+        }
+
+        return await CompleteEtsyCallbackAsync(userId, workspaceId, code, state, codeVerifier);
+    }
+
+    private async Task<CallbackResponse> CompleteEtsyCallbackAsync(Guid userId, Guid workspaceId, string code, string state, string? codeVerifier)
+    {
         // Clean up state
         _oauthStateStore.DeleteState(state);
         
@@ -107,9 +134,9 @@ public class ShopService : IShopService
         // Get shop info from Etsy
         var shopInfo = await _etsyService.GetShopInfoAsync(tokenResponse.AccessToken);
         
-        // Check if shop already exists for this user
-        var existingShop = await _shopRepository.GetByUserIdAsync(userId)
-            .ContinueWith(t => t.Result.FirstOrDefault(s => s.ExternalId == shopInfo.ShopId));
+        var existingShop = workspaceId == Guid.Empty
+            ? (await _shopRepository.GetByUserIdAsync(userId)).FirstOrDefault(s => s.ExternalId == shopInfo.ShopId)
+            : await _shopRepository.GetByWorkspaceAndExternalIdAsync(workspaceId, shopInfo.ShopId);
         
         var shopId = existingShop?.Id ?? Guid.NewGuid();
         var isNewShop = existingShop == null;
@@ -122,6 +149,7 @@ public class ShopService : IShopService
         {
             Id = shopId,
             UserId = userId,
+            WorkspaceId = workspaceId,
             Provider = "etsy",
             ExternalId = shopInfo.ShopId,
             AccessToken = encryptedAccessToken,
@@ -136,12 +164,12 @@ public class ShopService : IShopService
         if (isNewShop)
         {
             await _shopRepository.AddAsync(shop);
-            _logger.LogInformation("Created new shop {ShopId} for user {UserId}", shopId, userId);
+            _logger.LogInformation("Created new shop {ShopId} for user {UserId} in workspace {WorkspaceId}", shopId, userId, workspaceId);
         }
         else
         {
             await _shopRepository.UpdateAsync(shop);
-            _logger.LogInformation("Updated existing shop {ShopId} for user {UserId}", shopId, userId);
+            _logger.LogInformation("Updated existing shop {ShopId} for user {UserId} in workspace {WorkspaceId}", shopId, userId, workspaceId);
         }
         
         return new CallbackResponse
@@ -170,29 +198,16 @@ public class ShopService : IShopService
             throw new UnauthorizedAccessException("You do not have permission to delete this shop");
         }
         
-        // Clean up associated products before deleting the shop
-        var products = await _productRepository.GetByShopIdWithPartsAsync(shopId);
-        foreach (var product in products)
-        {
-            // Delete parts and their associated files for this product
-            if (product.ProductParts != null)
-            {
-                foreach (var productPart in product.ProductParts)
-                {
-                    if (productPart.Part != null)
-                    {
-                        var files = await _printFileRepository.GetByPartIdAsync(productPart.Part.Id);
-                        foreach (var file in files)
-                        {
-                            await _printFileRepository.DeleteAsync(file.Id);
-                        }
-                        await _partRepository.DeleteAsync(productPart.Part.Id);
-                    }
-                }
-            }
-            await _productRepository.DeleteAsync(product.Id);
-        }
-        
+        await DeleteShopProductsAsync(shopId);
+        await _shopRepository.DeleteAsync(shopId);
+    }
+
+    public async Task DeleteWorkspaceShopAsync(Guid workspaceId, Guid shopId)
+    {
+        _logger.LogInformation("Deleting shop {ShopId} in workspace {WorkspaceId}", shopId, workspaceId);
+
+        var shop = await GetWorkspaceShopOrThrowAsync(workspaceId, shopId);
+        await DeleteShopProductsAsync(shop.Id);
         await _shopRepository.DeleteAsync(shopId);
     }
 
@@ -214,57 +229,103 @@ public class ShopService : IShopService
             throw new UnauthorizedAccessException("You do not have permission to sync this shop");
         }
         
-        // Decrypt access token
+        return await SyncShopAsync(shop);
+    }
+
+    public async Task<SyncResponse> InitiateWorkspaceSyncAsync(Guid workspaceId, Guid shopId)
+    {
+        _logger.LogInformation("Initiating sync for shop {ShopId} in workspace {WorkspaceId}", shopId, workspaceId);
+        var shop = await GetWorkspaceShopOrThrowAsync(workspaceId, shopId);
+        return await SyncShopAsync(shop);
+    }
+
+    private async Task<Shop> GetWorkspaceShopOrThrowAsync(Guid workspaceId, Guid shopId)
+    {
+        var shop = await _shopRepository.GetByIdAsync(shopId);
+        if (shop == null)
+        {
+            throw new KeyNotFoundException($"Shop {shopId} not found");
+        }
+
+        if (shop.WorkspaceId != workspaceId)
+        {
+            _logger.LogWarning("Attempted workspace-scoped operation for shop {ShopId} in workspace {WorkspaceId}, but shop belongs to {OwnerWorkspaceId}",
+                shopId, workspaceId, shop.WorkspaceId);
+            throw new UnauthorizedAccessException("You do not have permission to access this shop");
+        }
+
+        return shop;
+    }
+
+    private async Task DeleteShopProductsAsync(Guid shopId)
+    {
+        var products = await _productRepository.GetByShopIdWithPartsAsync(shopId);
+        foreach (var product in products)
+        {
+            if (product.ProductParts != null)
+            {
+                foreach (var productPart in product.ProductParts)
+                {
+                    if (productPart.Part != null)
+                    {
+                        var files = await _printFileRepository.GetByPartIdAsync(productPart.Part.Id);
+                        foreach (var file in files)
+                        {
+                            await _printFileRepository.DeleteAsync(file.Id);
+                        }
+                        await _partRepository.DeleteAsync(productPart.Part.Id);
+                    }
+                }
+            }
+            await _productRepository.DeleteAsync(product.Id);
+        }
+    }
+
+    private async Task<SyncResponse> SyncShopAsync(Shop shop)
+    {
         var accessToken = _tokenEncryption.Decrypt(shop.AccessToken);
-        
-        // Validate token first
+
         var isTokenValid = await _etsyService.ValidateTokenAsync(accessToken);
         if (!isTokenValid)
         {
-            // Try to refresh
             var refreshToken = _tokenEncryption.Decrypt(shop.RefreshToken);
             var newTokens = await _etsyService.RefreshTokenAsync(refreshToken);
-            
-            // Update encrypted tokens
+
             shop.AccessToken = _tokenEncryption.Encrypt(newTokens.AccessToken);
-            shop.RefreshToken = _tokenEncryption.Encrypt(newTokens.RefreshToken);
+            shop.RefreshToken = _tokenEncryption.Encrypt(newTokens.RefreshToken ?? string.Empty);
             shop.TokenExpiresAt = DateTime.UtcNow.AddSeconds(newTokens.ExpiresIn);
             await _shopRepository.UpdateAsync(shop);
-            
+
             accessToken = newTokens.AccessToken;
-            _logger.LogInformation("Refreshed expired token for shop {ShopId}", shopId);
+            _logger.LogInformation("Refreshed expired token for shop {ShopId}", shop.Id);
         }
-        
-        // Sync listings
+
         var listings = await _etsyService.GetListingsAsync(accessToken, shop.ExternalId);
-        
-        int importedCount = 0;
-        int updatedCount = 0;
-        
+        var importedCount = 0;
+        var updatedCount = 0;
+
         foreach (var listing in listings)
         {
-            var existingProduct = await _productRepository.GetByExternalListingIdAsync(listing.ListingId, shopId);
-            
+            var existingProduct = await _productRepository.GetByExternalListingIdAsync(listing.ListingId, shop.Id);
+
             if (existingProduct != null)
             {
-                // Idempotent update
                 existingProduct.Name = listing.Title;
                 existingProduct.Description = listing.Description;
                 existingProduct.EtsyPrice = listing.Price;
                 existingProduct.ImageUrl = listing.ImageUrl;
                 existingProduct.IsActive = listing.IsActive;
                 existingProduct.UpdatedAt = DateTime.UtcNow;
-                
+
                 await _productRepository.UpdateAsync(existingProduct);
                 updatedCount++;
             }
             else
             {
-                // Create new product
                 var product = new Product
                 {
                     Id = Guid.NewGuid(),
-                    ShopId = shopId,
+                    ShopId = shop.Id,
                     ExternalListingId = listing.ListingId,
                     Name = listing.Title,
                     Description = listing.Description,
@@ -274,25 +335,35 @@ public class ShopService : IShopService
                     CreatedAt = DateTime.UtcNow,
                     UpdatedAt = DateTime.UtcNow
                 };
-                
+
                 await _productRepository.AddAsync(product);
                 importedCount++;
             }
         }
-        
-        // Update last sync time
+
         shop.LastSyncAt = DateTime.UtcNow;
         await _shopRepository.UpdateAsync(shop);
-        
-        _logger.LogInformation("Sync completed for shop {ShopId}: {Imported} imported, {Updated} updated", 
-            shopId, importedCount, updatedCount);
-        
+
+        _logger.LogInformation("Sync completed for shop {ShopId}: {Imported} imported, {Updated} updated",
+            shop.Id, importedCount, updatedCount);
+
         return new SyncResponse
         {
-            JobId = $"sync_{shopId:N}_{DateTime.UtcNow.Ticks}",
+            JobId = $"sync_{shop.Id:N}_{DateTime.UtcNow.Ticks}",
             Status = "Completed"
         };
     }
+
+    private static IEnumerable<ShopResponse> ToResponses(IEnumerable<Shop> shops) =>
+        shops.Select(s => new ShopResponse
+        {
+            Id = s.Id,
+            Provider = s.Provider,
+            ExternalId = s.ExternalId,
+            ShopName = s.ShopName,
+            IsActive = s.IsActive,
+            LastSyncAt = s.LastSyncAt
+        });
     private static string GenerateCodeVerifier()
     {
         const int length = 128;

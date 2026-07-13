@@ -45,7 +45,6 @@ public static class Phase1Api
         services.AddHttpClient("Etsy", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<IPrintHubStore, PrintHubStore>();
         services.AddSingleton<IPrintHubFileStorage, PrintHubFileStorage>();
-        services.AddSingleton<EtsyIntegrationService>();
         services.AddSingleton<IOAuthStateStore, InMemoryOAuthStateStore>();
         services.AddScoped<IShopService, ShopService>();
         services.AddSingleton<IShopRepository, InMemoryShopRepository>();
@@ -58,9 +57,8 @@ public static class Phase1Api
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
         services.AddScoped<IWorkspaceAuthorizationService, WorkspaceAuthorizationService>();
-        services.AddSingleton<ITokenEncryptionService>(sp => 
-            new AesTokenEncryptionService(configuration["TokenEncryption:Key"] 
-                ?? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))));
+        services.AddSingleton<ITokenEncryptionService>(sp =>
+            new AesTokenEncryptionService(ResolveTokenEncryptionKey(configuration, sp.GetRequiredService<IHostEnvironment>())));
         services.AddSingleton<EtsyConfiguration>(sp => new EtsyConfiguration
         {
             ClientId = configuration["Etsy:ClientId"] ?? string.Empty,
@@ -132,27 +130,87 @@ public static class Phase1Api
             await repository.UpdateAsync(workspace, ct);
             return Results.Ok(ToWorkspaceResponse(workspace, WorkspaceRole.Owner));
         });
-        app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
+        workspaces.MapGet("/{workspaceId:guid}/shops", async (Guid workspaceId, IWorkspaceAuthorizationService authorization, IShopService shops, CancellationToken ct) =>
         {
-            var state = await store.ReadAsync(ct);
-            return Results.Ok(state.EtsyConnection?.ToResponse());
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
+            return Results.Ok(new ShopsResponse((await shops.GetWorkspaceShopsAsync(workspaceId)).OrderBy(x => x.ShopName)));
         });
-        app.MapGet("/api/etsy/connect", async (HttpRequest request, EtsyIntegrationService etsy, string? returnUrl, CancellationToken ct) =>
+        workspaces.MapPost("/{workspaceId:guid}/shops/connect/etsy", async (Guid workspaceId, ConnectEtsyRequest? request, IWorkspaceAuthorizationService authorization, ICurrentUserService currentUser, IShopService shops, CancellationToken ct) =>
         {
-            var authUrl = await etsy.CreateAuthorizationUrlAsync(GetApiBaseUrl(request), returnUrl, ct);
-            return Results.Ok(new { authUrl });
+            if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+            var current = await currentUser.GetAsync(ct);
+            var result = await shops.InitiateEtsyConnectAsync(current!.User.Id, workspaceId, request?.ReturnUrl);
+            return Results.Ok(new ConnectResponseDto(result.AuthUrl));
         });
-        app.MapGet("/api/etsy/callback", async (HttpRequest request, EtsyIntegrationService etsy, string code, string state, CancellationToken ct) =>
+        workspaces.MapPost("/{workspaceId:guid}/shops/etsy/callback", async (Guid workspaceId, EtsyCallbackRequest request, IWorkspaceAuthorizationService authorization, ICurrentUserService currentUser, IShopService shops, CancellationToken ct) =>
         {
-            var result = await etsy.CompleteOAuthAsync(GetApiBaseUrl(request), code, state, ct);
-            return result.Success
-                ? Results.Redirect(result.ReturnUrl ?? "/settings?etsy=connected")
-                : Results.BadRequest(result);
+            if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+            if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.State))
+                return Results.BadRequest(new { error = "Code and state are required." });
+
+            var current = await currentUser.GetAsync(ct);
+            try
+            {
+                var result = await shops.HandleEtsyCallbackAsync(current!.User.Id, workspaceId, request.Code, request.State);
+                return Results.Ok(new CallbackResponseDto(result.ShopId, result.ShopName, result.Connected));
+            }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("OAuth state", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.BadRequest(new { error = "Invalid or expired OAuth state." });
+            }
         });
-        app.MapPost("/api/etsy/sync", async (EtsyIntegrationService etsy, CancellationToken ct) =>
+        workspaces.MapPost("/{workspaceId:guid}/shops/{shopId:guid}/sync", async (Guid workspaceId, Guid shopId, IWorkspaceAuthorizationService authorization, IShopService shops, CancellationToken ct) =>
         {
-            var result = await etsy.SyncListingsAsync(ct);
-            return Results.Ok(result);
+            if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+            try
+            {
+                var result = await shops.InitiateWorkspaceSyncAsync(workspaceId, shopId);
+                return Results.Ok(new SyncResponseDto(result.JobId, result.Status));
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound(new { error = "Shop not found." });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+            catch (EtsyTokenExpiredException)
+            {
+                return Results.BadRequest(new { error = "Etsy token expired. Please reconnect your shop." });
+            }
+            catch (EtsyRateLimitException)
+            {
+                return Results.StatusCode(StatusCodes.Status429TooManyRequests);
+            }
+        });
+        workspaces.MapDelete("/{workspaceId:guid}/shops/{shopId:guid}", async (Guid workspaceId, Guid shopId, IWorkspaceAuthorizationService authorization, IShopService shops, CancellationToken ct) =>
+        {
+            if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+            try
+            {
+                await shops.DeleteWorkspaceShopAsync(workspaceId, shopId);
+                return Results.NoContent();
+            }
+            catch (KeyNotFoundException)
+            {
+                return Results.NotFound(new { error = "Shop not found." });
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return Results.Forbid();
+            }
+        });
+        workspaces.MapGet("/{workspaceId:guid}/products", async (Guid workspaceId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, CancellationToken ct) =>
+        {
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
+            var workspaceShops = await shops.GetByWorkspaceIdAsync(workspaceId, ct);
+            var importedProducts = new List<ProductRecord>();
+            foreach (var shop in workspaceShops)
+            {
+                importedProducts.AddRange((await products.GetByShopIdAsync(shop.Id, ct)).Select(p => p.ToRecord()));
+            }
+            return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name)));
         });
         app.MapGet("/api/products", async (IProductRepository products, CancellationToken ct) =>
         {
@@ -211,6 +269,18 @@ public static class Phase1Api
         var configured = request.HttpContext.RequestServices.GetRequiredService<IConfiguration>()["PublicApiBaseUrl"];
         return !string.IsNullOrWhiteSpace(configured) ? configured.TrimEnd('/') : $"{request.Scheme}://{request.Host}".TrimEnd('/');
     }
+
+    private static string ResolveTokenEncryptionKey(IConfiguration configuration, IHostEnvironment environment)
+    {
+        var configured = configuration["TokenEncryption:Key"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        if (environment.IsDevelopment() || environment.IsEnvironment("Testing"))
+            return "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
+
+        throw new InvalidOperationException("TokenEncryption:Key must be configured outside development and test environments.");
+    }
 }
 
 public sealed record CurrentUserResponse(Guid UserId, Guid WorkspaceId, string DisplayName, string Email);
@@ -221,6 +291,12 @@ public sealed record CreateWorkspaceRequest(string? Name);
 public sealed record UpdateWorkspaceRequest(string? Name);
 public sealed record WorkspaceResponse(Guid Id, string Name, string Role);
 public sealed record WorkspaceDetailResponse(Guid Id, string Name, Guid OwnerUserId, int MemberCount);
+public sealed record ShopsResponse(IEnumerable<ShopResponse> Shops);
+public sealed record ConnectEtsyRequest(string? ReturnUrl);
+public sealed record ConnectResponseDto(string AuthUrl);
+public sealed record EtsyCallbackRequest(string Code, string State);
+public sealed record CallbackResponseDto(Guid ShopId, string ShopName, bool Connected);
+public sealed record SyncResponseDto(string JobId, string Status);
 
 public static class PrintHubDefaults
 {
