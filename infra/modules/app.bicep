@@ -12,6 +12,9 @@ param etsyClientSecret string
 @secure()
 param etsyStateSigningSecret string
 
+@secure()
+param tokenEncryptionKey string
+
 var suffix = uniqueString(resourceGroup().id, appName, environment)
 var normalized = toLower(replace(appName, '-', ''))
 var acrName = take('${normalized}${environment}${suffix}', 50)
@@ -171,6 +174,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
           name: 'etsy-state-signing-secret'
           value: etsyStateSigningSecret
         }
+        {
+          name: 'token-encryption-key'
+          value: tokenEncryptionKey
+        }
       ]
     }
     template: {
@@ -202,6 +209,10 @@ resource apiApp 'Microsoft.App/containerApps@2024-03-01' = {
             {
               name: 'Etsy__StateSigningSecret'
               secretRef: 'etsy-state-signing-secret'
+            }
+            {
+              name: 'TokenEncryption__Key'
+              secretRef: 'token-encryption-key'
             }
             {
               name: 'Cors__AllowedOrigins__0'

@@ -29,6 +29,10 @@ param etsyClientSecret string
 @description('Dedicated state-signing secret for Etsy OAuth CSRF protection.')
 param etsyStateSigningSecret string
 
+@secure()
+@description('Base64 AES key used to encrypt stored Etsy OAuth credentials.')
+param tokenEncryptionKey string
+
 var resourceGroupName = 'rg-${appName}-${environment}'
 
 resource rg 'Microsoft.Resources/resourceGroups@2024-03-01' = {
@@ -47,6 +51,7 @@ module app './modules/app.bicep' = {
     etsyClientId: etsyClientId
     etsyClientSecret: etsyClientSecret
     etsyStateSigningSecret: etsyStateSigningSecret
+    tokenEncryptionKey: tokenEncryptionKey
   }
 }
 
