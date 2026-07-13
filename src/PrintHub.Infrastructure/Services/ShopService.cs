@@ -134,9 +134,24 @@ public class ShopService : IShopService
         // Get shop info from Etsy
         var shopInfo = await _etsyService.GetShopInfoAsync(tokenResponse.AccessToken);
         
-        var existingShop = workspaceId == Guid.Empty
-            ? (await _shopRepository.GetByUserIdAsync(userId)).FirstOrDefault(s => s.ExternalId == shopInfo.ShopId)
-            : await _shopRepository.GetByWorkspaceAndExternalIdAsync(workspaceId, shopInfo.ShopId);
+        Shop? existingShop;
+        if (workspaceId == Guid.Empty)
+        {
+            existingShop = (await _shopRepository.GetByUserIdAsync(userId)).FirstOrDefault(s => s.ExternalId == shopInfo.ShopId);
+        }
+        else
+        {
+            var activeWorkspaceShops = (await _shopRepository.GetByWorkspaceIdAsync(workspaceId))
+                .Where(s => s.IsActive)
+                .ToList();
+            existingShop = activeWorkspaceShops.FirstOrDefault(s => s.ExternalId == shopInfo.ShopId);
+            if (existingShop is null && activeWorkspaceShops.Count > 0)
+            {
+                _logger.LogWarning("Workspace {WorkspaceId} already has an active Etsy shop and cannot connect external shop {ExternalShopId}",
+                    workspaceId, shopInfo.ShopId);
+                throw new InvalidOperationException("Workspace already has an active Etsy shop connected.");
+            }
+        }
         
         var shopId = existingShop?.Id ?? Guid.NewGuid();
         var isNewShop = existingShop == null;

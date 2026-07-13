@@ -158,6 +158,10 @@ public static class Phase1Api
             {
                 return Results.BadRequest(new { error = "Invalid or expired OAuth state." });
             }
+            catch (InvalidOperationException ex) when (ex.Message.Contains("active Etsy shop", StringComparison.OrdinalIgnoreCase))
+            {
+                return Results.Conflict(new { error = "Workspace already has an active Etsy shop connected." });
+            }
         });
         workspaces.MapPost("/{workspaceId:guid}/shops/{shopId:guid}/sync", async (Guid workspaceId, Guid shopId, IWorkspaceAuthorizationService authorization, IShopService shops, CancellationToken ct) =>
         {

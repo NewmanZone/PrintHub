@@ -41,12 +41,14 @@ public class InMemoryShopRepository : IShopRepository
 
     public Task<Shop> AddAsync(Shop shop, CancellationToken ct = default)
     {
+        EnsureSingleActiveWorkspaceShop(shop);
         _shops[shop.Id] = shop;
         return Task.FromResult(shop);
     }
 
     public Task<Shop> UpdateAsync(Shop shop, CancellationToken ct = default)
     {
+        EnsureSingleActiveWorkspaceShop(shop);
         shop.UpdatedAt = DateTime.UtcNow;
         _shops[shop.Id] = shop;
         return Task.FromResult(shop);
@@ -56,5 +58,19 @@ public class InMemoryShopRepository : IShopRepository
     {
         _shops.TryRemove(id, out _);
         return Task.CompletedTask;
+    }
+
+    private void EnsureSingleActiveWorkspaceShop(Shop shop)
+    {
+        if (shop.WorkspaceId == Guid.Empty || !shop.IsActive)
+            return;
+
+        var hasAnotherActiveShop = _shops.Values.Any(existing =>
+            existing.Id != shop.Id
+            && existing.WorkspaceId == shop.WorkspaceId
+            && existing.IsActive);
+
+        if (hasAnotherActiveShop)
+            throw new InvalidOperationException("A workspace can only have one active shop.");
     }
 }

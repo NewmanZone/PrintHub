@@ -123,6 +123,39 @@ public class WorkspaceEtsyApiTests : IClassFixture<WebApplicationFactory<Program
         (await stranger.GetAsync($"/workspaces/{workspace.Id}/shops")).StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 
+    [Fact]
+    public async Task EtsyCallback_RejectsSecondActiveShopInWorkspace()
+    {
+        using var factory = _factory.WithWebHostBuilder(builder =>
+        {
+            builder.ConfigureServices(services =>
+            {
+                services.RemoveAll<IEtsyService>();
+                services.AddSingleton<IEtsyService>(new SequencedEtsyService("etsy-shop-one", "etsy-shop-two"));
+            });
+        });
+        using var owner = AuthenticatedClient(factory, Guid.NewGuid());
+        var workspace = await CreateWorkspaceAsync(owner, "Single Etsy Shop");
+
+        var firstConnect = await owner.PostAsJsonAsync($"/workspaces/{workspace.Id}/shops/connect/etsy", new { });
+        firstConnect.StatusCode.Should().Be(HttpStatusCode.OK);
+        var firstState = Query((await firstConnect.Content.ReadFromJsonAsync<ConnectResponse>())!.AuthUrl)["state"];
+
+        var firstCallback = await owner.PostAsJsonAsync($"/workspaces/{workspace.Id}/shops/etsy/callback", new { code = "first-code", state = firstState });
+        firstCallback.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        var secondConnect = await owner.PostAsJsonAsync($"/workspaces/{workspace.Id}/shops/connect/etsy", new { });
+        secondConnect.StatusCode.Should().Be(HttpStatusCode.OK);
+        var secondState = Query((await secondConnect.Content.ReadFromJsonAsync<ConnectResponse>())!.AuthUrl)["state"];
+
+        var secondCallback = await owner.PostAsJsonAsync($"/workspaces/{workspace.Id}/shops/etsy/callback", new { code = "second-code", state = secondState });
+        secondCallback.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        var listed = await owner.GetFromJsonAsync<ShopsResponse>($"/workspaces/{workspace.Id}/shops");
+        listed!.Shops.Should().ContainSingle();
+        listed.Shops[0].ShopName.Should().Be("etsy-shop-one");
+    }
+
     private async Task<WorkspaceResponse> CreateWorkspaceAsync(HttpClient client, string name)
     {
         var response = await client.PostAsJsonAsync("/workspaces", new { name });
@@ -131,8 +164,11 @@ public class WorkspaceEtsyApiTests : IClassFixture<WebApplicationFactory<Program
     }
 
     private HttpClient AuthenticatedClient(Guid subject)
+        => AuthenticatedClient(_factory, subject);
+
+    private static HttpClient AuthenticatedClient(WebApplicationFactory<Program> factory, Guid subject)
     {
-        var client = _factory.CreateClient();
+        var client = factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-User-Id", subject.ToString());
         client.DefaultRequestHeaders.Add("X-User-Email", $"{subject}@example.com");
         return client;
@@ -159,4 +195,40 @@ public class WorkspaceEtsyApiTests : IClassFixture<WebApplicationFactory<Program
     private sealed record ShopDto(Guid Id, string ShopName);
     private sealed record ProductsResponse(List<ProductDto> Products);
     private sealed record ProductDto(string ExternalListingId, string Name);
+
+    private sealed class SequencedEtsyService : IEtsyService
+    {
+        private readonly Queue<string> _shopIds;
+
+        public SequencedEtsyService(params string[] shopIds)
+        {
+            _shopIds = new Queue<string>(shopIds);
+        }
+
+        public Task<string> GetAuthorizationUrlAsync(string state, string redirectUri, string? codeChallenge = null) =>
+            Task.FromResult($"https://www.etsy.com/oauth/connect?state={state}");
+
+        public Task<EtsyTokenResponse> ExchangeCodeForTokenAsync(string code, string redirectUri, string? codeVerifier = null) =>
+            Task.FromResult(new EtsyTokenResponse
+            {
+                AccessToken = $"access-{code}",
+                RefreshToken = $"refresh-{code}",
+                ExpiresIn = 3600,
+                TokenType = "Bearer"
+            });
+
+        public Task<EtsyTokenResponse> RefreshTokenAsync(string refreshToken) =>
+            Task.FromResult(new EtsyTokenResponse { AccessToken = "refreshed-access", RefreshToken = "refreshed-refresh", ExpiresIn = 3600 });
+
+        public Task<EtsyShopInfo> GetShopInfoAsync(string accessToken)
+        {
+            var shopId = _shopIds.Dequeue();
+            return Task.FromResult(new EtsyShopInfo { ShopId = shopId, ShopName = shopId });
+        }
+
+        public Task<IEnumerable<EtsyListing>> GetListingsAsync(string accessToken, string shopId) =>
+            Task.FromResult<IEnumerable<EtsyListing>>(Array.Empty<EtsyListing>());
+
+        public Task<bool> ValidateTokenAsync(string accessToken) => Task.FromResult(true);
+    }
 }
