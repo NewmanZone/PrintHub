@@ -201,7 +201,7 @@ tests/
   "Etsy": {
     "ClientId": "...",
     "ClientSecret": "...",
-    "RedirectUri": "https://app.printhub.example.com/settings/etsy/callback"
+    "RedirectUri": "https://app.printhub.example.com/settings?etsy=callback"
   }
 }
 ```

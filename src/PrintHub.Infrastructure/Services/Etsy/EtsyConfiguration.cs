@@ -13,6 +13,7 @@ public class EtsyConfiguration
     public string AuthorizationUrl { get; set; } = "https://www.etsy.com/oauth2/authorize";
     public string TokenUrl { get; set; } = "https://api.etsy.com/v3/oauth/token";
     public string RedirectUri { get; set; } = string.Empty;
+    public string RedirectFallbackUri { get; set; } = "http://localhost:3000/settings?etsy=callback";
     public string Scopes { get; set; } = "listings_r:w shop_r";
     
     // For fake mode (development)

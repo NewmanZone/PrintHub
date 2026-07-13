@@ -70,6 +70,15 @@ beforeEach(() => {
       return jsonResponse({ authUrl: 'https://www.etsy.com/oauth/connect?state=test' })
     }
 
+    if (url.pathname === `/workspaces/${workspaceId}/shops/etsy/callback` && init?.method === 'POST') {
+      return jsonResponse({
+        shopId: 'shop_001',
+        externalId: '123456',
+        shopName: 'Newman Zone',
+        lastSyncAt: null,
+      })
+    }
+
     if (url.pathname === `/workspaces/${workspaceId}/shops/shop_001/sync` && init?.method === 'POST') {
       return jsonResponse({ jobId: 'sync_001', status: 'queued' })
     }

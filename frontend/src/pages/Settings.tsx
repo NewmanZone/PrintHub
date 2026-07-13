@@ -11,6 +11,7 @@ export const Settings: React.FC = () => {
   const [busy, setBusy] = React.useState(false)
   const [message, setMessage] = React.useState('')
   const [error, setError] = React.useState('')
+  const processedCallback = React.useRef(false)
 
   const loadConnection = React.useCallback(async () => {
     setLoading(true)
@@ -26,6 +27,38 @@ export const Settings: React.FC = () => {
 
   React.useEffect(() => {
     void loadConnection()
+  }, [loadConnection])
+
+  React.useEffect(() => {
+    if (processedCallback.current) return
+
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('etsy') !== 'callback') return
+
+    processedCallback.current = true
+    const code = params.get('code')
+    const state = params.get('state')
+    if (!code || !state) {
+      setError('Etsy did not return the required authorization details.')
+      window.history.replaceState({}, '', '/settings')
+      return
+    }
+
+    setBusy(true)
+    setMessage('')
+    setError('')
+    api.completeEtsyCallback(code, state)
+      .then(async (connected) => {
+        setMessage(`${connected.shopName} is connected.`)
+        await loadConnection()
+      })
+      .catch((err) => {
+        setError(err instanceof Error ? err.message : 'Failed to complete Etsy authorization.')
+      })
+      .finally(() => {
+        setBusy(false)
+        window.history.replaceState({}, '', '/settings')
+      })
   }, [loadConnection])
 
   const connectEtsy = async () => {

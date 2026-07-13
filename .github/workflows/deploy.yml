@@ -159,7 +159,8 @@ jobs:
             --name "${{ steps.infra.outputs.api_app }}" \
             --resource-group "${{ steps.infra.outputs.resource_group }}" \
             --set-env-vars \
-              Cors__AllowedOrigins__0="${{ steps.frontend.outputs.frontend_endpoint }}"
+              Cors__AllowedOrigins__0="${{ steps.frontend.outputs.frontend_endpoint }}" \
+              PublicFrontendBaseUrl="${{ steps.frontend.outputs.frontend_endpoint }}"
 
       - name: Build frontend for Azure API
         working-directory: frontend
@@ -189,5 +190,5 @@ jobs:
             echo ""
             echo "- Frontend: ${{ steps.frontend.outputs.frontend_endpoint }}"
             echo "- API: https://${{ steps.infra.outputs.api_fqdn }}"
-            echo "- Etsy callback URL: https://${{ steps.infra.outputs.api_fqdn }}/api/etsy/callback"
+            echo "- Etsy callback URL: ${{ steps.frontend.outputs.frontend_endpoint }}/settings?etsy=callback"
           } >> "$GITHUB_STEP_SUMMARY"

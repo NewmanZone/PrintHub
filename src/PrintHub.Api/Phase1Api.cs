@@ -68,6 +68,7 @@ public static class Phase1Api
             TokenUrl = configuration["Etsy:TokenUrl"] ?? "https://api.etsy.com/v3/public/oauth/token",
             Scopes = configuration["Etsy:Scopes"] ?? "listings_r shops_r",
             RedirectUri = configuration["Etsy:RedirectUri"] ?? string.Empty,
+            RedirectFallbackUri = ResolveEtsyRedirectFallbackUri(configuration),
         });
         services.AddHttpClient<IEtsyService, EtsyApiService>();
         return services;
@@ -315,6 +316,19 @@ public static class Phase1Api
             return "AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA=";
 
         throw new InvalidOperationException("TokenEncryption:Key must be configured outside development and test environments.");
+    }
+
+    private static string ResolveEtsyRedirectFallbackUri(IConfiguration configuration)
+    {
+        var configured = configuration["Etsy:RedirectFallbackUri"];
+        if (!string.IsNullOrWhiteSpace(configured))
+            return configured;
+
+        var frontendBaseUrl = configuration["PublicFrontendBaseUrl"] ?? configuration["Etsy:FrontendBaseUrl"];
+        if (!string.IsNullOrWhiteSpace(frontendBaseUrl))
+            return $"{frontendBaseUrl.TrimEnd('/')}/settings?etsy=callback";
+
+        return "http://localhost:3000/settings?etsy=callback";
     }
 }
 

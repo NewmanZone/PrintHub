@@ -111,12 +111,21 @@ export const api = {
       : null
   },
 
-  async getEtsyConnectUrl(returnUrl = `${window.location.origin}/settings?etsy=connected`) {
+  async getEtsyConnectUrl(returnUrl = `${window.location.origin}/settings?etsy=callback`) {
     const workspaceId = await currentWorkspaceId()
     return request<{ authUrl: string }>(`/workspaces/${workspaceId}/shops/connect/etsy`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ returnUrl }),
+    })
+  },
+
+  async completeEtsyCallback(code: string, state: string) {
+    const workspaceId = await currentWorkspaceId()
+    return request<EtsyConnection>(`/workspaces/${workspaceId}/shops/etsy/callback`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, state }),
     })
   },
 

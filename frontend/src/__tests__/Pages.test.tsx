@@ -1,7 +1,7 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
-import { Bundles, Products } from '../pages'
+import { Bundles, Products, Settings } from '../pages'
 
 beforeAll(() => {
   Object.defineProperty(URL, 'createObjectURL', {
@@ -41,5 +41,25 @@ describe('workspace pages', () => {
 
     expect(screen.getByRole('heading', { name: 'Preparation Bundles' })).toBeInTheDocument()
     expect(screen.getByText('No live bundle workflow yet')).toBeInTheDocument()
+  })
+
+  it('completes an Etsy OAuth callback through the workspace API', async () => {
+    window.history.pushState({}, '', '/settings?etsy=callback&code=oauth-code&state=oauth-state')
+
+    render(
+      <MemoryRouter>
+        <Settings />
+      </MemoryRouter>,
+    )
+
+    expect(await screen.findByText('Newman Zone is connected.')).toBeInTheDocument()
+    await waitFor(() => expect(window.location.pathname + window.location.search).toBe('/settings'))
+    expect(fetch).toHaveBeenCalledWith(
+      '/workspaces/workspace_001/shops/etsy/callback',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({ code: 'oauth-code', state: 'oauth-state' }),
+      }),
+    )
   })
 })

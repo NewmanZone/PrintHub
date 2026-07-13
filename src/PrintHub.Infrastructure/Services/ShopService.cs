@@ -59,9 +59,8 @@ public class ShopService : IShopService
     {
         if (!string.IsNullOrEmpty(_etsyConfig.RedirectUri))
             return _etsyConfig.RedirectUri;
-        // Derive from ApiBaseUrl when config does not set RedirectUri
-        var baseUrl = _etsyConfig.BaseUrl?.TrimEnd('/');
-        return !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}/api/etsy/callback" : string.Empty;
+
+        return _etsyConfig.RedirectFallbackUri;
     }
 
     public async Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, string? returnUrl = null)
