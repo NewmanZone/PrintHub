@@ -27,6 +27,9 @@ public class InMemoryShopRepository : IShopRepository
         return Task.FromResult<IEnumerable<Shop>>(shops);
     }
 
+    public Task<IEnumerable<Shop>> GetByWorkspaceIdAsync(Guid workspaceId, CancellationToken ct = default) =>
+        Task.FromResult<IEnumerable<Shop>>(_shops.Values.Where(s => s.WorkspaceId == workspaceId).ToList());
+
     public Task<Shop> AddAsync(Shop shop, CancellationToken ct = default)
     {
         _shops[shop.Id] = shop;

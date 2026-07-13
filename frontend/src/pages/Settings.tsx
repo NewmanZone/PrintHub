@@ -46,7 +46,7 @@ export const Settings: React.FC = () => {
     setError('')
     try {
       const result = await api.syncEtsy()
-      setMessage(`Synced ${result.total} listings from Etsy.`)
+      setMessage(result.total == null ? `Etsy sync ${result.status?.toLowerCase() ?? 'started'}.` : `Synced ${result.total} listings from Etsy.`)
       await loadConnection()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sync Etsy listings.')
@@ -81,7 +81,7 @@ export const Settings: React.FC = () => {
             <div className="ph-stack">
               <StatusChip status="success" label="Connected" />
               <span><strong>Shop:</strong> {connection.shopName}</span>
-              <span><strong>Shop ID:</strong> {connection.shopId}</span>
+              <span><strong>Shop ID:</strong> {connection.externalId ?? connection.shopId}</span>
               <span><strong>Last sync:</strong> {connection.lastSyncAt ? new Date(connection.lastSyncAt).toLocaleString() : 'Never'}</span>
               <div className="ph-inline">
                 <Button variant="secondary" size="sm" iconLeft={<RefreshCw size={16} />} onClick={syncEtsy} disabled={busy}>Sync listings</Button>

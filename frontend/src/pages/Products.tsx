@@ -38,7 +38,9 @@ export const Products: React.FC = () => {
     setError('')
     try {
       const result = await api.syncEtsy()
-      setMessage(`Synced ${result.total} listings (${result.imported} imported, ${result.updated} updated).`)
+      setMessage(result.total == null
+        ? `Etsy sync ${result.status?.toLowerCase() ?? 'started'}.`
+        : `Synced ${result.total} listings (${result.imported ?? 0} imported, ${result.updated ?? 0} updated).`)
       await loadProducts()
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to sync Etsy.')

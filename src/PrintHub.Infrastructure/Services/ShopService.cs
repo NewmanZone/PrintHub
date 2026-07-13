@@ -58,6 +58,107 @@ public class ShopService : IShopService
         });
     }
 
+    public async Task<IEnumerable<ShopResponse>> GetShopsForWorkspaceAsync(Guid workspaceId)
+    {
+        var shops = await _shopRepository.GetByWorkspaceIdAsync(workspaceId);
+        return shops.Select(ToResponse);
+    }
+
+    private static ShopResponse ToResponse(Shop s) => new()
+    {
+        Id = s.Id, Provider = s.Provider, ExternalId = s.ExternalId, ShopName = s.ShopName,
+        IsActive = s.IsActive, LastSyncAt = s.LastSyncAt
+    };
+
+    public async Task<ConnectResponse> InitiateWorkspaceEtsyConnectAsync(Guid workspaceId, Guid userId, string? returnUrl = null)
+    {
+        var state = Guid.NewGuid().ToString("N");
+        var codeVerifier = GenerateCodeVerifier();
+        _oauthStateStore.SaveState(state, $"{userId:N}|{workspaceId:N}", returnUrl ?? string.Empty,
+            TimeSpan.FromMinutes(10), codeVerifier);
+        var authUrl = await _etsyService.GetAuthorizationUrlAsync(state, GetWorkspaceRedirectUri(workspaceId), GenerateCodeChallenge(codeVerifier));
+        return new ConnectResponse { AuthUrl = authUrl };
+    }
+
+    public async Task<CallbackResponse> HandleWorkspaceEtsyCallbackAsync(Guid workspaceId, Guid userId, string code, string state)
+    {
+        var (context, _, codeVerifier) = _oauthStateStore.GetState(state);
+        if (context != $"{userId:N}|{workspaceId:N}")
+            throw new InvalidOperationException("Invalid or expired OAuth state");
+        _oauthStateStore.DeleteState(state);
+        var token = await _etsyService.ExchangeCodeForTokenAsync(code, GetWorkspaceRedirectUri(workspaceId), codeVerifier);
+        var info = await _etsyService.GetShopInfoAsync(token.AccessToken);
+        var existing = (await _shopRepository.GetByWorkspaceIdAsync(workspaceId)).FirstOrDefault();
+        var now = DateTime.UtcNow;
+        var shop = new Shop
+        {
+            Id = existing?.Id ?? Guid.NewGuid(), WorkspaceId = workspaceId, UserId = userId,
+            Provider = "etsy", ExternalId = info.ShopId, ShopName = info.ShopName, IsActive = true,
+            AccessToken = _tokenEncryption.Encrypt(token.AccessToken),
+            RefreshToken = _tokenEncryption.Encrypt(token.RefreshToken ?? string.Empty),
+            TokenExpiresAt = now.AddSeconds(token.ExpiresIn), CreatedAt = existing?.CreatedAt ?? now, UpdatedAt = now
+        };
+        if (existing is null) await _shopRepository.AddAsync(shop); else await _shopRepository.UpdateAsync(shop);
+        return new CallbackResponse { ShopId = shop.Id, ShopName = shop.ShopName, Connected = true };
+    }
+
+    public async Task DeleteWorkspaceShopAsync(Guid workspaceId, Guid shopId)
+    {
+        var shop = await GetWorkspaceShop(workspaceId, shopId);
+        await DeleteShopContentsAsync(shop);
+    }
+
+    public async Task<SyncResponse> SyncWorkspaceShopAsync(Guid workspaceId, Guid shopId)
+    {
+        await GetWorkspaceShop(workspaceId, shopId);
+        return await SyncShopAsync(shopId);
+    }
+
+    private async Task<Shop> GetWorkspaceShop(Guid workspaceId, Guid shopId)
+    {
+        var shop = await _shopRepository.GetByIdAsync(shopId);
+        if (shop is null || shop.WorkspaceId != workspaceId) throw new KeyNotFoundException($"Shop {shopId} not found");
+        return shop;
+    }
+
+    private async Task DeleteShopContentsAsync(Shop shop)
+    {
+        var products = await _productRepository.GetByShopIdWithPartsAsync(shop.Id);
+        foreach (var product in products) await _productRepository.DeleteAsync(product.Id);
+        await _shopRepository.DeleteAsync(shop.Id);
+    }
+
+    private async Task<SyncResponse> SyncShopAsync(Guid shopId)
+    {
+        var shop = (await _shopRepository.GetByIdAsync(shopId))!;
+        var accessToken = _tokenEncryption.Decrypt(shop.AccessToken);
+        if (!await _etsyService.ValidateTokenAsync(accessToken))
+        {
+            var refreshed = await _etsyService.RefreshTokenAsync(_tokenEncryption.Decrypt(shop.RefreshToken));
+            shop.AccessToken = _tokenEncryption.Encrypt(refreshed.AccessToken);
+            shop.RefreshToken = _tokenEncryption.Encrypt(refreshed.RefreshToken ?? string.Empty);
+            shop.TokenExpiresAt = DateTime.UtcNow.AddSeconds(refreshed.ExpiresIn);
+            accessToken = refreshed.AccessToken;
+        }
+        var imported = 0;
+        foreach (var listing in await _etsyService.GetListingsAsync(accessToken, shop.ExternalId))
+        {
+            var product = await _productRepository.GetByExternalListingIdAsync(listing.ListingId, shop.Id);
+            var isNew = product is null;
+            if (product is null)
+            {
+                product = new Product { Id = Guid.NewGuid(), ShopId = shop.Id, ExternalListingId = listing.ListingId, CreatedAt = DateTime.UtcNow };
+                imported++;
+            }
+            product.Name = listing.Title; product.Description = listing.Description; product.EtsyPrice = listing.Price;
+            product.ImageUrl = listing.ImageUrl; product.IsActive = listing.IsActive; product.UpdatedAt = DateTime.UtcNow;
+            if (isNew) await _productRepository.AddAsync(product); else await _productRepository.UpdateAsync(product);
+        }
+        shop.LastSyncAt = DateTime.UtcNow;
+        await _shopRepository.UpdateAsync(shop);
+        return new SyncResponse { JobId = $"sync_{shop.Id:N}_{DateTime.UtcNow.Ticks}", Status = "Completed" };
+    }
+
     private string GetRedirectUri()
     {
         if (!string.IsNullOrEmpty(_etsyConfig.RedirectUri))
@@ -65,6 +166,15 @@ public class ShopService : IShopService
         // Derive from ApiBaseUrl when config does not set RedirectUri
         var baseUrl = _etsyConfig.BaseUrl?.TrimEnd('/');
         return !string.IsNullOrEmpty(baseUrl) ? $"{baseUrl}/api/etsy/callback" : string.Empty;
+    }
+
+    private string GetWorkspaceRedirectUri(Guid workspaceId)
+    {
+        if (!string.IsNullOrEmpty(_etsyConfig.RedirectUri)) return _etsyConfig.RedirectUri;
+        var baseUrl = _etsyConfig.BaseUrl?.TrimEnd('/');
+        return !string.IsNullOrEmpty(baseUrl)
+            ? $"{baseUrl}/workspaces/{workspaceId}/shops/etsy/callback"
+            : string.Empty;
     }
 
     public async Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, string? returnUrl = null)
