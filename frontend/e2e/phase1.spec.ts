@@ -1,5 +1,7 @@
 import { expect, test } from '@playwright/test'
 
+const workspaceId = '22222222-2222-2222-2222-222222222222'
+const shopId = '33333333-3333-3333-3333-333333333333'
 const productId = '11111111-2222-3333-4444-555555555555'
 const product = {
   id: productId,
@@ -15,31 +17,41 @@ const product = {
 test.beforeEach(async ({ page }) => {
   let uploaded = false
 
-  await page.route('**/api/etsy/connection', async (route) => {
+  await page.route('**/auth/me', async (route) => {
     await route.fulfill({
       json: {
-        shopId: '123456',
-        shopName: 'Newman Zone',
-        expiresAt: '2026-06-01T00:00:00.000Z',
-        connectedAt: '2026-05-20T00:00:00.000Z',
-        lastSyncAt: '2026-05-21T00:00:00.000Z',
+        user: { id: '44444444-4444-4444-4444-444444444444', email: 'newman@example.com', displayName: 'Newman Zone' },
+        workspaces: [{ id: workspaceId, name: 'Newman Zone', role: 'Owner' }],
       },
     })
   })
 
-  await page.route('**/api/etsy/sync', async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/shops`, async (route) => {
+    await route.fulfill({
+      json: {
+        shops: [{
+          id: shopId,
+          externalId: '123456',
+          shopName: 'Newman Zone',
+          lastSyncAt: '2026-05-21T00:00:00.000Z',
+        }],
+      },
+    })
+  })
+
+  await page.route(`**/workspaces/${workspaceId}/shops/${shopId}/sync`, async (route) => {
     await route.fulfill({ json: { imported: 0, updated: 1, total: 1, syncedAt: '2026-05-21T00:00:00.000Z' } })
   })
 
-  await page.route('**/api/products', async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/products`, async (route) => {
     await route.fulfill({ json: { products: [product] } })
   })
 
-  await page.route(`**/api/products/${productId}`, async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/products/${productId}`, async (route) => {
     await route.fulfill({ json: product })
   })
 
-  await page.route(`**/api/products/${productId}/files`, async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/products/${productId}/files`, async (route) => {
     if (route.request().method() === 'POST') {
       uploaded = true
       await route.fulfill({

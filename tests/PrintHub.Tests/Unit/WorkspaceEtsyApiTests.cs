@@ -63,6 +63,12 @@ public class WorkspaceEtsyApiTests : IClassFixture<WebApplicationFactory<Program
 
         var products = await owner.GetFromJsonAsync<ProductsResponse>($"/workspaces/{workspace.Id}/products");
         products!.Products.Should().Contain(x => x.ExternalListingId == "etsy_listing_001" && x.Name == "Dino Wall Hook");
+        var productId = products.Products.Single(x => x.ExternalListingId == "etsy_listing_001").Id;
+
+        var productDetail = await owner.GetFromJsonAsync<ProductDto>($"/workspaces/{workspace.Id}/products/{productId}");
+        productDetail!.Name.Should().Be("Dino Wall Hook");
+
+        (await owner.GetAsync("/api/products")).StatusCode.Should().Be(HttpStatusCode.NotFound);
 
         var syncAgain = await owner.PostAsync($"/workspaces/{workspace.Id}/shops/{connected.ShopId}/sync", null);
         syncAgain.StatusCode.Should().Be(HttpStatusCode.OK);
@@ -194,7 +200,7 @@ public class WorkspaceEtsyApiTests : IClassFixture<WebApplicationFactory<Program
     private sealed record ShopsResponse(List<ShopDto> Shops);
     private sealed record ShopDto(Guid Id, string ShopName);
     private sealed record ProductsResponse(List<ProductDto> Products);
-    private sealed record ProductDto(string ExternalListingId, string Name);
+    private sealed record ProductDto(Guid Id, string ExternalListingId, string Name);
 
     private sealed class SequencedEtsyService : IEtsyService
     {

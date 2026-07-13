@@ -216,27 +216,31 @@ public static class Phase1Api
             }
             return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name)));
         });
-        app.MapGet("/api/products", async (IProductRepository products, CancellationToken ct) =>
+        workspaces.MapGet("/{workspaceId:guid}/products/{productId:guid}", async (Guid workspaceId, Guid productId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, CancellationToken ct) =>
         {
-            var importedProducts = await products.GetAllAsync(ct);
-            return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name).Select(p => p.ToRecord())));
-        });
-        app.MapGet("/api/products/{productId:guid}", async (Guid productId, IProductRepository products, CancellationToken ct) =>
-        {
-            var product = await products.GetByIdAsync(productId, ct);
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
+            var product = await GetWorkspaceProductAsync(workspaceId, productId, shops, products, ct);
             return product is null ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product.ToRecord());
         });
-        app.MapPost("/api/products/{productId:guid}/files", UploadProductFileAsync);
-        app.MapGet("/api/products/{productId:guid}/files", async (Guid productId, IPrintHubStore store, CancellationToken ct) =>
+        workspaces.MapGet("/{workspaceId:guid}/products/{productId:guid}/files", async (Guid workspaceId, Guid productId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, IPrintHubStore store, CancellationToken ct) =>
         {
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
+            if (await GetWorkspaceProductAsync(workspaceId, productId, shops, products, ct) is null)
+                return Results.NotFound(new { error = "Product not found" });
+
             var state = await store.ReadAsync(ct);
             return Results.Ok(new ProductFilesResponse(state.Files.Where(f => f.ProductId == productId).OrderByDescending(f => f.UploadedAt).Select(f => f.ToResponse())));
         });
-        app.MapGet("/api/files/{fileId:guid}/download", async (Guid fileId, IPrintHubStore store, IPrintHubFileStorage fileStorage, CancellationToken ct) =>
+        workspaces.MapPost("/{workspaceId:guid}/products/{productId:guid}/files", UploadWorkspaceProductFileAsync);
+        workspaces.MapGet("/{workspaceId:guid}/files/{fileId:guid}/download", async (Guid workspaceId, Guid fileId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, IPrintHubStore store, IPrintHubFileStorage fileStorage, CancellationToken ct) =>
         {
+            if (!await authorization.IsInRoleAsync(workspaceId, WorkspaceRole.Contributor, ct)) return Results.Forbid();
             var state = await store.ReadAsync(ct);
             var file = state.Files.FirstOrDefault(f => f.Id == fileId);
             if (file is null) return Results.NotFound(new { error = "File not found" });
+            if (await GetWorkspaceProductAsync(workspaceId, file.ProductId, shops, products, ct) is null)
+                return Results.NotFound(new { error = "File not found" });
+
             var stream = await fileStorage.OpenReadAsync(file.StoragePath, ct);
             return Results.File(stream, "application/octet-stream", file.FileName);
         });
@@ -248,6 +252,33 @@ public static class Phase1Api
 
     private static WorkspaceResponse ToWorkspaceResponse(Workspace workspace, WorkspaceRole role) =>
         new(workspace.Id, workspace.Name, role.ToString());
+
+    private static async Task<Product?> GetWorkspaceProductAsync(Guid workspaceId, Guid productId, IShopRepository shops, IProductRepository products, CancellationToken ct)
+    {
+        var product = await products.GetByIdAsync(productId, ct);
+        if (product is null) return null;
+
+        var workspaceShops = await shops.GetByWorkspaceIdAsync(workspaceId, ct);
+        return workspaceShops.Any(shop => shop.Id == product.ShopId) ? product : null;
+    }
+
+    private static async Task<IResult> UploadWorkspaceProductFileAsync(
+        Guid workspaceId,
+        Guid productId,
+        HttpRequest request,
+        IWorkspaceAuthorizationService authorization,
+        IShopRepository shops,
+        IProductRepository products,
+        IPrintHubStore store,
+        IPrintHubFileStorage fileStorage,
+        CancellationToken ct)
+    {
+        if (!await authorization.IsOwnerAsync(workspaceId, ct)) return Results.Forbid();
+        if (await GetWorkspaceProductAsync(workspaceId, productId, shops, products, ct) is null)
+            return Results.NotFound(new { error = "Product not found" });
+
+        return await UploadProductFileAsync(productId, request, store, products, fileStorage, ct);
+    }
 
     private static async Task<IResult> UploadProductFileAsync(Guid productId, HttpRequest request, IPrintHubStore store, IProductRepository products, IPrintHubFileStorage fileStorage, CancellationToken ct)
     {
@@ -265,7 +296,7 @@ public static class Phase1Api
         var productFile = new ProductFileRecord(Guid.NewGuid(), productId, file.FileName, extension, file.Length, state.Files.Count(f => f.ProductId == productId) + 1, storedPath, DateTimeOffset.UtcNow);
         state.Files.Add(productFile);
         await store.WriteAsync(state, ct);
-        return Results.Created($"/api/products/{productId}/files/{productFile.Id}", productFile.ToResponse());
+        return Results.Created($"/products/{productId}/files/{productFile.Id}", productFile.ToResponse());
     }
 
     private static string GetApiBaseUrl(HttpRequest request)
