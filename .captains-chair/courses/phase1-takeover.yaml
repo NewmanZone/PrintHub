@@ -11,7 +11,7 @@ non_goals:
 - Phase 2 printer automation, billing, subscriptions, or inventory forecasting
 scope:
 - Preserve the completed auth, workspace authorization, and deployment-safety foundations
-- Complete PR #41 for workspace-scoped Etsy operations
+- 'Complete PR #41 for workspace-scoped Etsy operations'
 - Implement every remaining Phase 1 lane in ISSUES_EXECUTION_PLAN.md
 - Finish with API, UI, accessibility, security, and end-to-end exit verification
 users:
