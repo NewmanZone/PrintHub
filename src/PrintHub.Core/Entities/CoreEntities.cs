@@ -85,6 +85,7 @@ public class InventoryMovement
 public class Shop
 {
     public Guid Id { get; set; }
+    public Guid WorkspaceId { get; set; }
     public Guid UserId { get; set; }
     public string Provider { get; set; } = "etsy";
     public string ExternalId { get; set; } = string.Empty;

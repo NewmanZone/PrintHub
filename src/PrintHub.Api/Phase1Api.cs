@@ -45,7 +45,6 @@ public static class Phase1Api
         services.AddHttpClient("Etsy", client => client.Timeout = TimeSpan.FromSeconds(30));
         services.AddSingleton<IPrintHubStore, PrintHubStore>();
         services.AddSingleton<IPrintHubFileStorage, PrintHubFileStorage>();
-        services.AddSingleton<EtsyIntegrationService>();
         services.AddSingleton<IOAuthStateStore, InMemoryOAuthStateStore>();
         services.AddScoped<IShopService, ShopService>();
         services.AddSingleton<IShopRepository, InMemoryShopRepository>();
@@ -58,9 +57,19 @@ public static class Phase1Api
         services.AddScoped<ICurrentUserService, CurrentUserService>();
         services.AddScoped<ICurrentUserContext, HttpCurrentUserContext>();
         services.AddScoped<IWorkspaceAuthorizationService, WorkspaceAuthorizationService>();
-        services.AddSingleton<ITokenEncryptionService>(sp => 
-            new AesTokenEncryptionService(configuration["TokenEncryption:Key"] 
-                ?? Convert.ToBase64String(System.Security.Cryptography.RandomNumberGenerator.GetBytes(32))));
+        services.AddSingleton<ITokenEncryptionService>(_ =>
+        {
+            var key = configuration["TokenEncryption:Key"];
+            if (string.IsNullOrWhiteSpace(key))
+            {
+                var environment = configuration["ASPNETCORE_ENVIRONMENT"] ?? configuration["DOTNET_ENVIRONMENT"] ?? "Development";
+                if (!string.Equals(environment, "Development", StringComparison.OrdinalIgnoreCase) &&
+                    !string.Equals(environment, "Testing", StringComparison.OrdinalIgnoreCase))
+                    throw new InvalidOperationException("TokenEncryption:Key must be configured outside development and testing.");
+                key = Convert.ToBase64String(SHA256.HashData(Encoding.UTF8.GetBytes("PrintHub development token encryption key")));
+            }
+            return new AesTokenEncryptionService(key);
+        });
         services.AddSingleton<EtsyConfiguration>(sp => new EtsyConfiguration
         {
             ClientId = configuration["Etsy:ClientId"] ?? string.Empty,
@@ -132,37 +141,19 @@ public static class Phase1Api
             await repository.UpdateAsync(workspace, ct);
             return Results.Ok(ToWorkspaceResponse(workspace, WorkspaceRole.Owner));
         });
-        app.MapGet("/api/etsy/connection", async (IPrintHubStore store, CancellationToken ct) =>
+        workspaces.MapGet("/{workspaceId:guid}/products", async (Guid workspaceId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, CancellationToken ct) =>
         {
-            var state = await store.ReadAsync(ct);
-            return Results.Ok(state.EtsyConnection?.ToResponse());
-        });
-        app.MapGet("/api/etsy/connect", async (HttpRequest request, EtsyIntegrationService etsy, string? returnUrl, CancellationToken ct) =>
-        {
-            var authUrl = await etsy.CreateAuthorizationUrlAsync(GetApiBaseUrl(request), returnUrl, ct);
-            return Results.Ok(new { authUrl });
-        });
-        app.MapGet("/api/etsy/callback", async (HttpRequest request, EtsyIntegrationService etsy, string code, string state, CancellationToken ct) =>
-        {
-            var result = await etsy.CompleteOAuthAsync(GetApiBaseUrl(request), code, state, ct);
-            return result.Success
-                ? Results.Redirect(result.ReturnUrl ?? "/settings?etsy=connected")
-                : Results.BadRequest(result);
-        });
-        app.MapPost("/api/etsy/sync", async (EtsyIntegrationService etsy, CancellationToken ct) =>
-        {
-            var result = await etsy.SyncListingsAsync(ct);
-            return Results.Ok(result);
-        });
-        app.MapGet("/api/products", async (IProductRepository products, CancellationToken ct) =>
-        {
-            var importedProducts = await products.GetAllAsync(ct);
+            if (!await authorization.IsMemberAsync(workspaceId, ct)) return Results.Forbid();
+            var shopIds = (await shops.GetByWorkspaceIdAsync(workspaceId, ct)).Select(x => x.Id).ToHashSet();
+            var importedProducts = (await products.GetAllAsync(ct)).Where(x => shopIds.Contains(x.ShopId));
             return Results.Ok(new ProductsResponse(importedProducts.OrderBy(p => p.Name).Select(p => p.ToRecord())));
         });
-        app.MapGet("/api/products/{productId:guid}", async (Guid productId, IProductRepository products, CancellationToken ct) =>
+        workspaces.MapGet("/{workspaceId:guid}/products/{productId:guid}", async (Guid workspaceId, Guid productId, IWorkspaceAuthorizationService authorization, IShopRepository shops, IProductRepository products, CancellationToken ct) =>
         {
+            if (!await authorization.IsMemberAsync(workspaceId, ct)) return Results.Forbid();
             var product = await products.GetByIdAsync(productId, ct);
-            return product is null ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product.ToRecord());
+            var shopIds = (await shops.GetByWorkspaceIdAsync(workspaceId, ct)).Select(x => x.Id).ToHashSet();
+            return product is null || !shopIds.Contains(product.ShopId) ? Results.NotFound(new { error = "Product not found" }) : Results.Ok(product.ToRecord());
         });
         app.MapPost("/api/products/{productId:guid}/files", UploadProductFileAsync);
         app.MapGet("/api/products/{productId:guid}/files", async (Guid productId, IPrintHubStore store, CancellationToken ct) =>
@@ -323,6 +314,7 @@ public sealed class PrintHubHeaderAuthenticationHandler(
     protected override Task<AuthenticateResult> HandleAuthenticateAsync()
     {
         var headerAuthEnabled = environment.IsDevelopment()
+            || environment.IsEnvironment("Testing")
             || string.Equals(configuration["Auth:AllowHeaderUserId"], "true", StringComparison.OrdinalIgnoreCase);
         if (!headerAuthEnabled)
         {

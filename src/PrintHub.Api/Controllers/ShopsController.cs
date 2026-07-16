@@ -2,17 +2,19 @@ using System.Security.Claims;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using PrintHub.Core.Interfaces.Services;
+using PrintHub.Core.Interfaces.Auth;
 using PrintHub.Infrastructure.Services.Etsy;
 
 namespace PrintHub.API.Controllers;
 
 [ApiController]
-[Route("api/[controller]")]
+[Route("workspaces/{workspaceId:guid}/shops")]
 [Authorize]
 public class ShopsController : ControllerBase
 {
     private readonly IShopService _shopService;
     private readonly ILogger<ShopsController> _logger;
+    private readonly IWorkspaceAuthorizationService? _authorization;
 
     public ShopsController(IShopService shopService, ILogger<ShopsController> logger)
     {
@@ -20,10 +22,67 @@ public class ShopsController : ControllerBase
         _logger = logger;
     }
 
+    [Microsoft.Extensions.DependencyInjection.ActivatorUtilitiesConstructor]
+    public ShopsController(IShopService shopService, IWorkspaceAuthorizationService authorization, ILogger<ShopsController> logger)
+        : this(shopService, logger) => _authorization = authorization;
+
+    [HttpGet]
+    public async Task<IActionResult> GetWorkspaceShops(Guid workspaceId)
+    {
+        if (!await IsMember(workspaceId)) return Forbid();
+        return Ok(new ShopsResponse { Shops = (await _shopService.GetShopsForWorkspaceAsync(workspaceId)).Select(ToDto).ToList() });
+    }
+
+    [HttpPost("connect/etsy")]
+    public async Task<IActionResult> ConnectWorkspaceEtsy(Guid workspaceId, [FromBody] ConnectEtsyRequest? request = null)
+    {
+        if (!await IsOwner(workspaceId)) return Forbid();
+        var result = await _shopService.InitiateWorkspaceEtsyConnectAsync(workspaceId, GetUserId()!.Value, request?.ReturnUrl);
+        return Ok(new ConnectResponseDto { AuthUrl = result.AuthUrl });
+    }
+
+    [HttpPost("etsy/callback")]
+    public async Task<IActionResult> WorkspaceEtsyCallback(Guid workspaceId, [FromBody] EtsyCallbackRequest request)
+    {
+        if (!await IsOwner(workspaceId)) return Forbid();
+        if (string.IsNullOrWhiteSpace(request.Code) || string.IsNullOrWhiteSpace(request.State)) return BadRequest();
+        try
+        {
+            var result = await _shopService.HandleWorkspaceEtsyCallbackAsync(workspaceId, GetUserId()!.Value, request.Code, request.State);
+            return Ok(new CallbackResponseDto { ShopId = result.ShopId, ShopName = result.ShopName, Connected = result.Connected });
+        }
+        catch (InvalidOperationException) { return BadRequest(new { error = "Invalid or expired OAuth state" }); }
+    }
+
+    [HttpPost("{shopId:guid}/sync")]
+    public async Task<IActionResult> SyncWorkspaceShop(Guid workspaceId, Guid shopId)
+    {
+        if (!await IsContributor(workspaceId)) return Forbid();
+        try
+        {
+            var result = await _shopService.SyncWorkspaceShopAsync(workspaceId, shopId);
+            return Ok(new SyncResponseDto { JobId = result.JobId, Status = result.Status });
+        }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    [HttpDelete("{shopId:guid}")]
+    public async Task<IActionResult> DisconnectWorkspaceShop(Guid workspaceId, Guid shopId)
+    {
+        if (!await IsOwner(workspaceId)) return Forbid();
+        try { await _shopService.DeleteWorkspaceShopAsync(workspaceId, shopId); return NoContent(); }
+        catch (KeyNotFoundException) { return NotFound(); }
+    }
+
+    private Task<bool> IsMember(Guid id) => _authorization?.IsMemberAsync(id) ?? Task.FromResult(false);
+    private Task<bool> IsContributor(Guid id) => _authorization?.IsInRoleAsync(id, PrintHub.Core.Enums.WorkspaceRole.Contributor) ?? Task.FromResult(false);
+    private Task<bool> IsOwner(Guid id) => _authorization?.IsOwnerAsync(id) ?? Task.FromResult(false);
+    private static ShopDto ToDto(ShopResponse s) => new() { Id = s.Id, Provider = s.Provider, ExternalId = s.ExternalId, ShopName = s.ShopName, IsActive = s.IsActive, LastSyncAt = s.LastSyncAt };
+
     /// <summary>
     /// List all connected shops for the authenticated user.
     /// </summary>
-    [HttpGet]
+    [NonAction]
     [ProducesResponseType(typeof(ShopsResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> GetShops()
@@ -51,7 +110,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Initiate Etsy OAuth flow.
     /// </summary>
-    [HttpPost("connect/etsy")]
+    [NonAction]
     [ProducesResponseType(typeof(ConnectResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<IActionResult> ConnectEtsy([FromBody] ConnectEtsyRequest? request = null)
@@ -68,8 +127,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Etsy OAuth callback (Etsy redirects here via GET with query params).
     /// </summary>
-    [AllowAnonymous]
-    [HttpGet("etsy/callback")]
+    [NonAction]
     [ProducesResponseType(typeof(CallbackResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> EtsyCallbackGet([FromQuery] string code, [FromQuery] string state)
@@ -102,8 +160,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Etsy OAuth callback (handled by frontend redirect).
     /// </summary>
-    [AllowAnonymous]
-    [HttpPost("etsy/callback")]
+    [NonAction]
     [ProducesResponseType(typeof(CallbackResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<IActionResult> EtsyCallback([FromBody] EtsyCallbackRequest request)
@@ -136,7 +193,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Disconnect a shop.
     /// </summary>
-    [HttpDelete("{shopId}")]
+    [NonAction]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]
@@ -165,7 +222,7 @@ public class ShopsController : ControllerBase
     /// <summary>
     /// Manually trigger Etsy listing sync.
     /// </summary>
-    [HttpPost("{shopId}/sync")]
+    [NonAction]
     [ProducesResponseType(typeof(SyncResponseDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     [ProducesResponseType(StatusCodes.Status403Forbidden)]

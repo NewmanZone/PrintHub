@@ -7,6 +7,11 @@ namespace PrintHub.Core.Interfaces.Services;
 /// </summary>
 public interface IShopService
 {
+    Task<IEnumerable<ShopResponse>> GetShopsForWorkspaceAsync(Guid workspaceId);
+    Task<ConnectResponse> InitiateWorkspaceEtsyConnectAsync(Guid workspaceId, Guid userId, string? returnUrl = null);
+    Task<CallbackResponse> HandleWorkspaceEtsyCallbackAsync(Guid workspaceId, Guid userId, string code, string state);
+    Task DeleteWorkspaceShopAsync(Guid workspaceId, Guid shopId);
+    Task<SyncResponse> SyncWorkspaceShopAsync(Guid workspaceId, Guid shopId);
     Task<IEnumerable<ShopResponse>> GetShopsAsync(Guid userId);
     Task<ConnectResponse> InitiateEtsyConnectAsync(Guid userId, string? returnUrl = null);
     Task<CallbackResponse> HandleEtsyCallbackAsync(string code, string state);

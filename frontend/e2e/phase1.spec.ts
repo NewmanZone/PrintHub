@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test'
 
 const productId = '11111111-2222-3333-4444-555555555555'
+const workspaceId = '11111111-1111-1111-1111-111111111111'
 const product = {
   id: productId,
   externalListingId: '1001',
@@ -15,27 +16,36 @@ const product = {
 test.beforeEach(async ({ page }) => {
   let uploaded = false
 
-  await page.route('**/api/etsy/connection', async (route) => {
+  await page.route('**/auth/me', async (route) => {
+    await route.fulfill({
+      json: { workspaces: [{ id: workspaceId, name: 'Demo Workspace', role: 'Owner' }] },
+    })
+  })
+
+  await page.route(`**/workspaces/${workspaceId}/shops`, async (route) => {
     await route.fulfill({
       json: {
-        shopId: '123456',
-        shopName: 'Newman Zone',
-        expiresAt: '2026-06-01T00:00:00.000Z',
-        connectedAt: '2026-05-20T00:00:00.000Z',
-        lastSyncAt: '2026-05-21T00:00:00.000Z',
+        shops: [{
+          id: '22222222-2222-2222-2222-222222222222',
+          provider: 'etsy',
+          externalId: '123456',
+          shopName: 'Newman Zone',
+          isActive: true,
+          lastSyncAt: '2026-05-21T00:00:00.000Z',
+        }],
       },
     })
   })
 
-  await page.route('**/api/etsy/sync', async (route) => {
-    await route.fulfill({ json: { imported: 0, updated: 1, total: 1, syncedAt: '2026-05-21T00:00:00.000Z' } })
+  await page.route(`**/workspaces/${workspaceId}/shops/22222222-2222-2222-2222-222222222222/sync`, async (route) => {
+    await route.fulfill({ json: { jobId: 'sync_001', status: 'Completed' } })
   })
 
-  await page.route('**/api/products', async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/products`, async (route) => {
     await route.fulfill({ json: { products: [product] } })
   })
 
-  await page.route(`**/api/products/${productId}`, async (route) => {
+  await page.route(`**/workspaces/${workspaceId}/products/${productId}`, async (route) => {
     await route.fulfill({ json: product })
   })
 
@@ -84,7 +94,7 @@ test('phase one Etsy listing and file workflow is usable', async ({ page }) => {
   await page.getByRole('link', { name: /Products/i }).click()
   await expect(page.getByRole('heading', { name: 'Products' })).toBeVisible()
   await page.getByRole('button', { name: /Sync Etsy/i }).click()
-  await expect(page.getByText('Synced 1 listings')).toBeVisible()
+  await expect(page.getByText('Etsy sync completed.')).toBeVisible()
 
   await page.getByRole('link', { name: 'Dino Wall Hook' }).click()
   await expect(page.getByRole('heading', { name: 'Dino Wall Hook' })).toBeVisible()

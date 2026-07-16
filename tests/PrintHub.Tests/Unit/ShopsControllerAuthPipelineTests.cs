@@ -19,19 +19,19 @@ public class ShopsControllerAuthPipelineTests : IClassFixture<WebApplicationFact
     {
         var client = _factory.CreateClient();
 
-        var response = await client.GetAsync("/api/Shops");
+        var response = await client.GetAsync($"/workspaces/{Guid.NewGuid()}/shops");
 
         response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
     }
 
     [Fact]
-    public async Task GetShops_WithDevelopmentHeaderAuthentication_ReturnsOk()
+    public async Task GetShops_AuthenticatedNonMember_ReturnsForbidden()
     {
         var client = _factory.CreateClient();
         client.DefaultRequestHeaders.Add("X-User-Id", Guid.NewGuid().ToString());
 
-        var response = await client.GetAsync("/api/Shops");
+        var response = await client.GetAsync($"/workspaces/{Guid.NewGuid()}/shops");
 
-        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        response.StatusCode.Should().Be(HttpStatusCode.Forbidden);
     }
 }
