@@ -28,17 +28,22 @@ architecture_constraints:
   and QA models require a passing model canary before use
 acceptance_criteria:
 - Production deployment remains manual and protected by an owner approval environment
-- Every package receives current-head independent review, targeted tests, and final review
+- Every package receives current-head independent review, targeted tests, and final
+  review
 - UI packages receive functional, flow, cohesion, accessibility, and contrast QA
-- Important findings are repaired and rechecked without repeating unchanged model calls
+- Important findings are repaired and rechecked without repeating unchanged model
+  calls
 - Phase 1 supports the documented owner and contributor manual preparation workflow
 - Completion obeys the configured owner_approval policy during the supervised canary
 exit_criteria:
 - All Phase 1 work packages are complete and their pull requests are merged
 - Default-branch CI is verified after every merge
-- The authenticated owner/contributor happy path passes from OAuth entry through bundle completion
-- Workspace isolation, owner-only administration, encrypted tokens, and private file access are verified
-- UI QA has no unresolved blocking usability, contrast, functionality, or cohesion finding
+- The authenticated owner/contributor happy path passes from OAuth entry through bundle
+  completion
+- Workspace isolation, owner-only administration, encrypted tokens, and private file
+  access are verified
+- UI QA has no unresolved blocking usability, contrast, functionality, or cohesion
+  finding
 - Production deployment remains a separately approved action
 - No shared-checkout branch or repeated no-progress transition is used
 readiness:
@@ -47,14 +52,16 @@ readiness:
   category: architecture constraints
   question: Is the work-package graph actionable and acyclic?
   required: true
-  status: blocked
+  status: verified
   answer: 'Yes. The deployment-safety package is first; PR #41 completion depends
     on it.'
-  evidence: []
+  evidence:
+  - .captains-chair/courses/phase1-takeover.yaml:360-658
+  - Computed dependency review found no cycles.
   owner_decision_required: false
-  verified_by: null
-  verified_at: null
-  verification_model: null
+  verified_by: readiness_reviewer
+  verified_at: '2026-07-16T05:31:57.682556Z'
+  verification_model: gpt-5.5
 - version: 1
   key: configured_owner_approval_policy
   category: permissions
@@ -64,11 +71,11 @@ readiness:
   answer: Use supervised mode with owner_approval. The crew may plan, review, test,
     and repair; merge remains an owner decision.
   evidence:
-  - .captains-chair/courses/phase1-takeover.yaml:23
-  - ' .captains-chair/courses/phase1-takeover.yaml:55-68'
+  - .captains-chair/courses/phase1-takeover.yaml:23-24
+  - 'Live evidence envelope: runtime_policy.completion_policy=owner_approval, allow_autonomous_merge=false'
   owner_decision_required: true
   verified_by: readiness_reviewer
-  verified_at: '2026-07-16T04:55:27.465433Z'
+  verified_at: '2026-07-16T05:31:57.682556Z'
   verification_model: gpt-5.5
 - version: 1
   key: default_branch_ci_after_merge_verification
@@ -79,39 +86,48 @@ readiness:
   answer: Yes. Post-merge verification must confirm the actual default-branch commit
     and its CI result.
   evidence:
-  - .captains-chair/courses/phase1-takeover.yaml:69-83
-  - ' .github/workflows/ci.yml:3-6'
+  - .captains-chair/courses/phase1-takeover.yaml:37-38
+  - .github/workflows/ci.yml:3-6
+  - Live evidence envelope includes recent main CI runs and default_branch_sha=daec546a278fee62f96a0a7496fcc3e3004603ca
   owner_decision_required: false
   verified_by: readiness_reviewer
-  verified_at: '2026-07-16T04:55:27.465433Z'
+  verified_at: '2026-07-16T05:31:57.682556Z'
   verification_model: gpt-5.5
 - version: 1
   key: pr41_current_head_completion_evidence
   category: exit criteria
   question: 'What proof is required to complete the PR #41 package?'
   required: true
-  status: blocked
+  status: verified
   answer: Captain's Chair authenticated GitHubProvider must collect the current head
     SHA, required checks, mergeability, unresolved threads, review evidence, and post-merge
     main CI when applicable.
-  evidence: []
+  evidence:
+  - .captains-chair/courses/phase1-takeover.yaml:383-405
+  - 'Live evidence envelope: PR #41 headRefOid=c32ddb16a6cd5e5582087f1be74469ef61e83974,
+    mergeable=MERGEABLE, mergeStateStatus=CLEAN'
+  - 'Live evidence envelope: PR #41 statusCheckRollup has .NET, frontend, and smoke
+    checks SUCCESS; review_threads.unresolved_blocking=0'
   owner_decision_required: false
-  verified_by: null
-  verified_at: null
-  verification_model: null
+  verified_by: readiness_reviewer
+  verified_at: '2026-07-16T05:31:57.682556Z'
+  verification_model: gpt-5.5
 - version: 1
   key: production_deployment_requires_separate_approval
   category: deployment
   question: May the course deploy production as part of PR completion?
   required: true
-  status: blocked
+  status: verified
   answer: No. The first package removes push-to-main production deployment; production
     deploy remains workflow_dispatch plus separate explicit approval.
-  evidence: []
+  evidence:
+  - .github/workflows/deploy.yml:3-14
+  - .github/workflows/deploy.yml:25-30
+  - 'Live evidence envelope: prod environment required_reviewers protection'
   owner_decision_required: true
-  verified_by: null
-  verified_at: null
-  verification_model: null
+  verified_by: readiness_reviewer
+  verified_at: '2026-07-16T05:31:57.682556Z'
+  verification_model: gpt-5.5
 - version: 1
   key: rollback_plan
   category: rollback
@@ -122,241 +138,229 @@ readiness:
     the manual deployment workflow, verifying API/frontend smoke checks, and escalating
     destructive infrastructure rollback for explicit approval.
   evidence:
-  - .captains-chair/courses/phase1-takeover.yaml:116-126
-  - ' .captains-chair/courses/phase1-takeover.yaml:154-160'
+  - DESIGN/deployment-runbook.md:26-34
+  - DESIGN/deployment-runbook.md:35-41
   owner_decision_required: false
   verified_by: readiness_reviewer
-  verified_at: '2026-07-16T04:55:27.465433Z'
+  verified_at: '2026-07-16T05:31:57.682556Z'
   verification_model: gpt-5.5
 - version: 1
   key: token_policy
   category: token policy
   question: How is expensive model usage bounded?
   required: true
-  status: blocked
+  status: verified
   answer: Use GPT-5.5 only for readiness, independent review, and final review. Use
     Spark for coding/test/UX only after a passing route canary. No silent fallback;
     suppress unchanged no-progress calls and track tokens by model.
-  evidence: []
+  evidence:
+  - .captains-chair/USAGE_POLICY.md:6-15
+  - .captains-chair/USAGE_POLICY.md:17-29
+  - .captains-chair/USAGE_POLICY.md:31-35
   owner_decision_required: false
-  verified_by: null
-  verified_at: null
-  verification_model: null
+  verified_by: readiness_reviewer
+  verified_at: '2026-07-16T05:31:57.682556Z'
+  verification_model: gpt-5.5
 readiness_review:
   version: 1
-  verdict: needs_input
-  summary: Not ready. The two-package graph is acyclic and the first package correctly
-    targets the unsafe production deploy path, but the course does not yet cover completion
-    of the broader Phase 1 goal it states, and several execution-critical proofs depend
-    on live GitHub/Azure settings that are not locally verifiable from the repository.
-  input_sha: 31feb88b9835ea91ce7c167c8bd2d8823a360091729520b7ddb1288884aee54c
-  evidence_sha: 1d84d01ea3a4a7b5e82ae2b680a45122ffabb50f19d8cfe836307e13b18b42f6
+  verdict: ready
+  summary: The course is ready. The repository now contains an actionable, acyclic
+    Phase 1 work-package graph, manual production deployment controls, rollback documentation,
+    CI/test coverage entry points, usage policy, and authenticated live GitHub evidence
+    for PR/check/environment state. No owner questions are needed for readiness.
+  input_sha: fe39bda06dd2f23bee85a32b42ce613915887b13b0db1141ac7da9c59082b318
+  evidence_sha: 2a9990e1853064acc13c23f44d6c2477b92bfaecd59a1110442be8ada7f1bada
+  source_evidence_sha: 43a57e2b238e2a7bc5ca4522a5cd48e7c8beefdcb3b837500624056ab573abd3
   provider: codex
   model: gpt-5.5
   reasoning: high
-  prompt_version: course-readiness-v1
+  prompt_version: course-readiness-v2
   reviewer: readiness_reviewer
-  session_id: 305c5d30-14fe-43e9-9740-639c7ecd49b0
-  reviewed_at: '2026-07-16T04:55:27.465433Z'
+  session_id: 7449e06a-e208-441e-903e-74af0d1a68c1
+  reviewed_at: '2026-07-16T05:31:57.682556Z'
   checks:
   - version: 1
     category: goals
-    status: blocked
-    finding: 'The stated goal is to complete PrintHub Phase 1, but the work-package
-      graph only covers deployment safety and PR #41. Repository planning docs list
-      substantial remaining Phase 1 work not represented as packages.'
+    status: verified
+    finding: 'The course goal is explicit and aligned with repository Phase 1 documentation:
+      complete the shared Etsy production workspace from OAuth entry through manual
+      preparation bundle completion.'
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:6-15 states Phase 1 completion
-      scope, including continuing the repository-owned plan.
-    - .captains-chair/courses/phase1-takeover.yaml:147-192 defines only protect-production-deploy
-      and complete-pr41.
-    - ISSUES_EXECUTION_PLAN.md lists not-yet-complete Phase 1 areas including auth
-      bootstrap, workspace membership, durable persistence, file storage/versioning,
-      bundles, and authenticated frontend flows.
+    - .captains-chair/courses/phase1-takeover.yaml:6-16
+    - ISSUES_EXECUTION_PLAN.md:9-22
+    - DESIGN/phase-1-shared-workspace.md:3-18
   - version: 1
     category: non-goals
     status: verified
-    finding: Non-goals are explicit and align with repository docs that keep automatic
-      production deployment and later printer/billing/inventory work out of scope.
+    finding: 'Non-goals are explicit and match the Phase 1 docs: no automatic production
+      deployment on merge and no later-phase printer automation, billing, subscriptions,
+      or inventory forecasting.'
     evidence:
     - .captains-chair/courses/phase1-takeover.yaml:9-11
-    - DESIGN/phase-1-shared-workspace.md:32-39
-    - README.md Phase 1/Later Phases sections
+    - ISSUES_EXECUTION_PLAN.md:22
+    - DESIGN/phase-1-shared-workspace.md:52-60
   - version: 1
     category: users
     status: verified
     finding: The course identifies authenticated workspace owners and accepted contributors,
-      matching Phase 1 product and security docs.
+      matching the documented Phase 1 roles and permissions.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:16-17
-    - DESIGN/phase-1-shared-workspace.md:43-59
-    - DESIGN/security.md Authorization/Roles sections
+    - .captains-chair/courses/phase1-takeover.yaml:17-18
+    - DESIGN/phase-1-shared-workspace.md:62-79
+    - DESIGN/security.md:56-69
   - version: 1
     category: architecture constraints
-    status: blocked
-    finding: The package graph is acyclic, but not complete for the stated Phase 1
-      completion goal. The course also relies on a live GitHubProvider constraint
-      that cannot be verified locally.
+    status: verified
+    finding: The course states the required architecture constraints and includes
+      a complete acyclic work-package graph from foundations through the Phase 1 exit
+      gate.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:18-27
-    - Dependency graph is protect-production-deploy -> complete-pr41 at .captains-chair/courses/phase1-takeover.yaml:147-192.
-    - No packages exist for the remaining Phase 1 work listed in ISSUES_EXECUTION_PLAN.md.
+    - .captains-chair/courses/phase1-takeover.yaml:19-28
+    - .captains-chair/courses/phase1-takeover.yaml:360-658
+    - 'Computed graph order: protect-production-deploy and auth-and-workspace-foundation
+      precede PR41/domain work; domain/API/UI packages converge only at phase1-exit-gate;
+      no reverse dependency was found.'
   - version: 1
     category: permissions
     status: verified
-    finding: The supervised owner_approval policy is stated in the course, and merge/production
-      completion authority is reserved to the owner.
+    finding: Completion authority is supervised with owner_approval; autonomous merge
+      is disabled in the live runtime policy, and production approval is separated
+      through GitHub environment protection.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:23
-    - ' .captains-chair/courses/phase1-takeover.yaml:55-68'
-    - ' .captains-chair/courses/phase1-takeover.yaml:31-33'
+    - .captains-chair/courses/phase1-takeover.yaml:23-24
+    - .captains-chair/courses/phase1-takeover.yaml:58-72
+    - 'Live evidence envelope: runtime_policy.operation_mode=supervised, completion_policy=owner_approval,
+      allow_autonomous_merge=false'
   - version: 1
     category: secret references
     status: verified
-    finding: Secret references are identifiable and not committed as literal secret
-      values. Deployment expects Azure and Etsy secrets through GitHub Actions secrets
-      and secure Bicep parameters.
+    finding: Secret names and protected handling are defined without exposing secret
+      values; this is sufficient because the course does not require a live production
+      deployment during readiness.
     evidence:
-    - .github/workflows/deploy.yml:75-103 references AZURE_CLIENT_ID, AZURE_TENANT_ID,
-      AZURE_SUBSCRIPTION_ID, ETSY_CLIENT_ID, ETSY_CLIENT_SECRET, and ETSY_STATE_SIGNING_SECRET.
-    - infra/main.bicep:20-30 marks Etsy parameters secure.
-    - src/PrintHub.Api/appsettings.json contains URLs/scopes but no literal Etsy or
-      Azure credentials.
+    - .github/workflows/deploy.yml:73-103 references Azure and Etsy GitHub secrets
+    - infra/main.bicep:20-30 marks Etsy OAuth parameters secure
+    - src/PrintHub.Api/appsettings.json:19-24 contains endpoint/scope config, not
+      literal credentials
   - version: 1
     category: external access
-    status: blocked
-    finding: The course requires live GitHub PR/check/review evidence and Azure/Etsy
-      deployment credentials, but local repository evidence cannot verify those connectors,
-      permissions, or secret availability.
+    status: verified
+    finding: The needed external systems are identified and the authenticated live
+      evidence envelope proves GitHub PR, check, environment, and workflow access
+      was available at collection time.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:24-25 requires Captain's Chair
-      authenticated GitHubProvider.
-    - .github/workflows/deploy.yml:75-103 requires Azure and Etsy GitHub secrets.
-    - 'No local file proves GitHubProvider authentication, PR #41 access, repository
-      environment protection, or populated GitHub secrets.'
+    - .captains-chair/courses/phase1-takeover.yaml:24-26
+    - 'Live evidence envelope: github.collection_errors={}'
+    - 'Live evidence envelope includes PR #41 state, recent workflow runs, default_branch_sha,
+      and GitHub environments'
   - version: 1
     category: environments
-    status: blocked
-    finding: Deployment environment selection is explicit in workflow syntax, but
-      the required GitHub environment protection policy is not verifiable locally.
+    status: verified
+    finding: Deployment environments are explicit in the manual workflow, and live
+      evidence confirms the prod environment has required-reviewer protection with
+      admin bypass disabled.
     evidence:
-    - .github/workflows/deploy.yml:4-16 defines workflow_dispatch environment choices
-      and still includes push to main.
-    - .github/workflows/deploy.yml:31 sets environment to inputs.environment or prod.
-    - .captains-chair/courses/phase1-takeover.yaml:156-157 requires GitHub environment
-      policy protection.
+    - .github/workflows/deploy.yml:4-14
+    - .github/workflows/deploy.yml:25-30
+    - 'Live evidence envelope: environments.environments[0].name=prod, can_admins_bypass=false,
+      protection_rules includes required_reviewers'
   - version: 1
     category: test data
     status: verified
-    finding: "The repository includes unit tests and mocked Playwright data for the\
-      \ current Etsy/listing/file UI path, sufficient for the current PR41 package\u2019\
-      s initial verification surface."
+    finding: The repo has test fixtures and mocked UI data sufficient for current
+      verification, with later work packages requiring additional tests as their APIs/UI
+      are implemented.
     evidence:
-    - tests/PrintHub.Tests includes Etsy, shop, token encryption, workspace auth,
-      and controller tests.
-    - frontend/e2e/phase1.spec.ts:18-75 mocks Etsy connection, sync, products, and
-      file upload responses.
-    - frontend/src/__tests__ contains route, page, shell, table, button, and status-chip
-      tests.
+    - frontend/e2e/phase1.spec.ts:15-75 mocks Etsy connection, sync, products, and
+      file upload responses
+    - frontend/e2e/phase1.spec.ts:78-101 exercises the current Phase 1 listing/file
+      flow
+    - tests/PrintHub.Tests/Unit includes auth, workspace, shop, Etsy, DI, and token
+      encryption tests
   - version: 1
     category: CI
     status: verified
-    finding: CI exists for main and pull requests and runs backend tests, frontend
-      tests/build, and Playwright. The course requires post-merge default-branch CI
-      verification.
+    finding: CI runs on main and pull requests, covering backend tests, frontend tests/build,
+      Playwright, and smoke readiness; the course also requires default-branch CI
+      verification after merges.
     evidence:
-    - .github/workflows/ci.yml:3-6 triggers on main push and pull_request.
-    - .github/workflows/ci.yml:19-56 runs dotnet restore/build/test, npm test/build,
-      and Playwright.
-    - .captains-chair/courses/phase1-takeover.yaml:34-38 and 69-83 require default-branch
-      CI verification after merge.
+    - .github/workflows/ci.yml:3-6
+    - .github/workflows/ci.yml:19-65
+    - .captains-chair/courses/phase1-takeover.yaml:36-43
   - version: 1
     category: deployment
-    status: blocked
-    finding: The course correctly identifies deployment safety as the first package,
-      but the current repository still deploys on push to main, so production is not
-      yet approval-safe.
+    status: verified
+    finding: Production deployment is manual-only in the repository workflow and separated
+      from PR completion; live evidence also confirms the protected prod environment
+      exists.
     evidence:
-    - .github/workflows/deploy.yml:4-16 includes both workflow_dispatch and push to
-      main.
-    - .github/workflows/deploy.yml:90-183 performs infrastructure deploy, image update,
-      frontend publish, and smoke tests.
-    - '.captains-chair/courses/phase1-takeover.yaml:149-160 requires removing push-to-main
-      production deployment before PR #41 can merge.'
+    - .github/workflows/deploy.yml:3-14 has workflow_dispatch only
+    - DESIGN/deployment-runbook.md:3-4 states merging main does not authorize or start
+      deployment
+    - 'Live evidence envelope: prod environment has required_reviewers protection'
   - version: 1
     category: rollback
     status: verified
-    finding: 'Rollback is specified as required work in the first package, with concrete
-      expected runbook contents, but no runbook exists yet. That is acceptable only
-      because the first package explicitly creates it before PR #41 completion.'
+    finding: Rollback is documented as redeploying the last known-good commit through
+      the manual deployment workflow, with smoke verification and explicit approval
+      for destructive infrastructure/data recovery.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:116-126
-    - ' .captains-chair/courses/phase1-takeover.yaml:154-160'
-    - No rollback/runbook file was found by local file search.
+    - DESIGN/deployment-runbook.md:26-34
+    - DESIGN/deployment-runbook.md:35-41
+    - .captains-chair/courses/phase1-takeover.yaml:371-373
   - version: 1
     category: observability
-    status: blocked
-    finding: Operational smoke checks exist, but observability expectations for completion
-      and rollback are under-specified. The course does not define logs, metrics,
-      alerts, dashboards, or incident evidence required after deployment changes.
+    status: verified
+    finding: 'The course has sufficient operational evidence requirements for Phase
+      1 readiness: workflow smoke checks, health/frontend verification, audit logging
+      requirements, and final-gate evidence for CI, health checks, diagnostics, and
+      rollback.'
     evidence:
-    - .github/workflows/deploy.yml:179-183 smoke tests API health and frontend content.
-    - DESIGN/security.md requires audit logging for sensitive operations.
-    - No course readiness item or work-package acceptance criterion defines monitoring/alerting
-      evidence.
+    - .github/workflows/deploy.yml:177-190
+    - DESIGN/security.md:128-150
+    - .captains-chair/courses/phase1-takeover.yaml:641-646
   - version: 1
     category: security
     status: verified
-    finding: 'Security constraints are documented and partially implemented: server-side
-      workspace authorization and AES-GCM token encryption exist, with tests present
-      in the repo.'
+    finding: Security requirements are explicit and partially implemented; remaining
+      security work is represented in the graph and final exit gate.
     evidence:
-    - DESIGN/security.md defines OAuth-only auth, workspace membership checks, role
-      restrictions, private storage, and audit logging.
-    - src/PrintHub.Infrastructure/Auth/WorkspaceAuthorizationService.cs:18-55 enforces
-      membership/role checks.
-    - src/PrintHub.Infrastructure/Services/TokenEncryptionService.cs:28-95 implements
-      AES-GCM token encryption.
+    - DESIGN/security.md:24-31
+    - DESIGN/security.md:49-55
+    - src/PrintHub.Infrastructure/Auth/WorkspaceAuthorizationService.cs:18-55
+    - src/PrintHub.Infrastructure/Services/TokenEncryptionService.cs:28-95
   - version: 1
     category: UX inputs
     status: verified
-    finding: The course calls out Settings and Etsy connection flows, and the repository
-      has Phase 1 UI docs plus Playwright coverage for the current listing/file workflow.
+    finding: UX inputs are present through Phase 1 product docs, design-system docs,
+      UI QA profile, and UI-package acceptance criteria.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:176-181
-    - DESIGN/ui-architecture.md and DESIGN/frontend-design-system.md are listed as
-      canonical docs in .captains-chair/project.yaml.
-    - frontend/e2e/phase1.spec.ts:78-101 exercises dashboard, products, Etsy sync,
-      product detail, upload, and download affordance.
+    - .captains-chair/courses/phase1-takeover.yaml:660-672
+    - DESIGN/phase-1-shared-workspace.md:128-155
+    - .captains-chair/project.yaml:13-18
   - version: 1
     category: token policy
-    status: blocked
-    finding: The course states a token/model policy, but the repository does not contain
-      the referenced Captain's Chair usage policy, model canary definition, token
-      tracking mechanism, or no-progress suppression configuration.
+    status: verified
+    finding: The token/model policy is documented and aligns with live runtime policy
+      for supervised operation; private autonomous limits are intentionally excluded
+      from the public repo.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:26-27
-    - ' .captains-chair/courses/phase1-takeover.yaml:130-142'
-    - ' .captains-chair/courses/phase1-takeover.yaml:193-195 has empty checkpoints,
-      qa_profiles, and model_profiles.'
+    - .captains-chair/USAGE_POLICY.md:3-15
+    - .captains-chair/USAGE_POLICY.md:17-29
+    - .captains-chair/USAGE_POLICY.md:31-35
+    - 'Live evidence envelope: runtime_policy.completion_policy=owner_approval and
+      allow_autonomous_merge=false'
   - version: 1
     category: exit criteria
-    status: blocked
-    finding: 'Exit criteria for PR #41 and post-merge CI are explicit, but the overall
-      Phase 1 completion exit is incomplete because the graph stops after PR #41 despite
-      the broader stated goal.'
+    status: verified
+    finding: Exit criteria are explicit and are backed by the final Phase 1 exit-gate
+      package, including merged packages, main CI, E2E happy path, security boundaries,
+      UI QA, manual deployment approval, and no shared-checkout/no-progress behavior.
     evidence:
-    - .captains-chair/courses/phase1-takeover.yaml:34-38
-    - ' .captains-chair/courses/phase1-takeover.yaml:169-192'
-    - 'ISSUES_EXECUTION_PLAN.md identifies multiple Phase 1 work items beyond PR #41.'
-  next_questions:
-  - 'Should this course stop at deployment safety plus PR #41, or should the work-package
-    graph be expanded to cover every remaining Phase 1 item in ISSUES_EXECUTION_PLAN.md?'
-  - Where is the authoritative Captain's Chair usage policy/model canary/token-tracking
-    configuration that backs the token_policy readiness answer?
-  - 'Can Captain''s Chair GitHubProvider access to NewmanZone/PrintHub PR #41, review
-    threads, checks, default-branch CI, and GitHub environment protection be verified
-    outside this local repo?'
+    - .captains-chair/courses/phase1-takeover.yaml:36-43
+    - .captains-chair/courses/phase1-takeover.yaml:633-658
+    - ISSUES_EXECUTION_PLAN.md:411-431
+  next_questions: []
 work_packages:
 - version: 1
   key: protect-production-deploy
@@ -406,13 +410,15 @@ work_packages:
 - version: 1
   key: auth-and-workspace-foundation
   title: Verify completed auth and workspace foundation
-  objective: Bind the already-merged OAuth current-user and workspace authorization implementation
-    to the course so dependent packages do not recreate it.
+  objective: Bind the already-merged OAuth current-user and workspace authorization
+    implementation to the course so dependent packages do not recreate it.
   dependencies: []
   acceptance_criteria:
   - OAuth-only /auth/me bootstraps and returns the current user and accepted workspaces
-  - Workspace creation, membership, and owner/contributor authorization are server enforced
-  - Non-members, pending members, removed members, and under-privileged roles are denied
+  - Workspace creation, membership, and owner/contributor authorization are server
+    enforced
+  - Non-members, pending members, removed members, and under-privileged roles are
+    denied
   checks:
   - dotnet test PrintHub.sln --configuration Release
   qa_profiles: []
@@ -424,8 +430,9 @@ work_packages:
 - version: 1
   key: durable-domain-persistence
   title: Persist the Phase 1 workspace domain
-  objective: Replace in-memory-only production paths with durable workspace-scoped persistence
-    for Phase 1 users, memberships, shops, products, parts, files, orders, bundles, and audit events.
+  objective: Replace in-memory-only production paths with durable workspace-scoped
+    persistence for Phase 1 users, memberships, shops, products, parts, files, orders,
+    bundles, and audit events.
   dependencies:
   - auth-and-workspace-foundation
   - complete-pr41
@@ -444,8 +451,8 @@ work_packages:
 - version: 1
   key: contributor-lifecycle
   title: Complete contributor invitation lifecycle
-  objective: Let owners invite contributors and let recipients accept access without weakening
-    workspace isolation or owner-only administration.
+  objective: Let owners invite contributors and let recipients accept access without
+    weakening workspace isolation or owner-only administration.
   dependencies:
   - durable-domain-persistence
   acceptance_criteria:
@@ -463,9 +470,8 @@ work_packages:
 - version: 1
   key: etsy-listing-order-sync
   title: Complete workspace-scoped Etsy listing and order sync
-  objective: >-
-    Build on PR #41 to import Etsy listings and orders into durable workspace-scoped records
-    with safe refresh, revocation, retry, and reconciliation behavior.
+  objective: 'Build on PR #41 to import Etsy listings and orders into durable workspace-scoped
+    records with safe refresh, revocation, retry, and reconciliation behavior.'
   dependencies:
   - durable-domain-persistence
   acceptance_criteria:
@@ -502,8 +508,8 @@ work_packages:
 - version: 1
   key: product-part-file-mapping
   title: Complete product, part, and file mapping APIs
-  objective: Let a workspace map Etsy-backed products to reusable parts and current file versions
-    for manual production preparation.
+  objective: Let a workspace map Etsy-backed products to reusable parts and current
+    file versions for manual production preparation.
   dependencies:
   - etsy-listing-order-sync
   - private-file-versioning
@@ -522,14 +528,15 @@ work_packages:
 - version: 1
   key: preparation-bundle-api
   title: Build the manual preparation bundle API
-  objective: Convert Etsy order demand and product mappings into a reviewable manual preparation
-    bundle without direct printer execution.
+  objective: Convert Etsy order demand and product mappings into a reviewable manual
+    preparation bundle without direct printer execution.
   dependencies:
   - product-part-file-mapping
   acceptance_criteria:
   - Users can create, inspect, update, and complete a workspace preparation bundle
   - Bundle items resolve order lines, part quantities, and exact file versions
-  - Manifest output contains the manual printing information and no unrelated workspace data
+  - Manifest output contains the manual printing information and no unrelated workspace
+    data
   checks:
   - dotnet test PrintHub.sln --configuration Release
   qa_profiles: []
@@ -541,13 +548,14 @@ work_packages:
 - version: 1
   key: authenticated-app-shell
   title: Align the authenticated app shell to Phase 1
-  objective: Provide predictable dashboard, orders, products/files, and workspace/settings navigation
-    using real authentication and workspace selection state.
+  objective: Provide predictable dashboard, orders, products/files, and workspace/settings
+    navigation using real authentication and workspace selection state.
   dependencies:
   - auth-and-workspace-foundation
   acceptance_criteria:
   - Public, loading, empty, error, unauthorized, and authenticated states are coherent
-  - Navigation excludes printer execution, inventory, billing, and other later-phase scope
+  - Navigation excludes printer execution, inventory, billing, and other later-phase
+    scope
   - Layout is responsive and keyboard navigable
   checks:
   - npm run test -- --run
@@ -562,8 +570,8 @@ work_packages:
 - version: 1
   key: workspace-settings-ui
   title: Complete OAuth entry and workspace settings UI
-  objective: Replace the demo entry with OAuth-only entry, workspace selection, Etsy administration,
-    and contributor management appropriate to the current role.
+  objective: Replace the demo entry with OAuth-only entry, workspace selection, Etsy
+    administration, and contributor management appropriate to the current role.
   dependencies:
   - contributor-lifecycle
   - etsy-listing-order-sync
@@ -609,8 +617,8 @@ work_packages:
 - version: 1
   key: orders-bundle-ui
   title: Complete orders and preparation bundle UI
-  objective: Let users reconcile Etsy orders, create a manual preparation bundle, inspect exact
-    files and quantities, and mark preparation complete.
+  objective: Let users reconcile Etsy orders, create a manual preparation bundle,
+    inspect exact files and quantities, and mark preparation complete.
   dependencies:
   - preparation-bundle-api
   - authenticated-app-shell
@@ -632,17 +640,20 @@ work_packages:
 - version: 1
   key: phase1-exit-gate
   title: Verify the complete Phase 1 release candidate
-  objective: Prove the documented owner and contributor workflow, security boundaries, UI quality,
-    operational evidence, and rollback readiness on current main.
+  objective: Prove the documented owner and contributor workflow, security boundaries,
+    UI quality, operational evidence, and rollback readiness on current main.
   dependencies:
   - workspace-settings-ui
   - product-file-ui
   - orders-bundle-ui
   acceptance_criteria:
   - OAuth entry through manual bundle completion passes end to end
-  - Owner and contributor role boundaries and workspace isolation pass adversarial tests
-  - UI accessibility, contrast, functionality, flow, responsive layout, and cohesion pass
-  - CI, audit logging, health checks, failure diagnostics, and rollback evidence are current
+  - Owner and contributor role boundaries and workspace isolation pass adversarial
+    tests
+  - UI accessibility, contrast, functionality, flow, responsive layout, and cohesion
+    pass
+  - CI, audit logging, health checks, failure diagnostics, and rollback evidence are
+    current
   - Remaining risks and intentionally deferred scope are documented
   checks:
   - dotnet test PrintHub.sln --configuration Release
@@ -671,6 +682,6 @@ qa_profiles:
   reviewer_role: ux_reviewer
   enabled: true
 model_profiles: {}
-status: readiness_review
-approved_by: null
-approved_at: null
+status: engaged
+approved_by: mln330
+approved_at: '2026-07-16T05:33:15.637526Z'
