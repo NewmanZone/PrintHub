@@ -12,8 +12,6 @@ on:
           - prod
           - test
           - dev
-  push:
-    branches: [ main ]
 
 permissions:
   contents: read
@@ -22,13 +20,13 @@ permissions:
 env:
   APP_NAME: printhub
   AZURE_LOCATION: eastus2
-  DEPLOY_ENVIRONMENT: ${{ inputs.environment || 'prod' }}
+  DEPLOY_ENVIRONMENT: ${{ inputs.environment }}
 
 jobs:
   deploy:
     name: Build, test, and deploy
     runs-on: ubuntu-latest
-    environment: ${{ inputs.environment || 'prod' }}
+    environment: ${{ inputs.environment }}
 
     steps:
       - uses: actions/checkout@v4
