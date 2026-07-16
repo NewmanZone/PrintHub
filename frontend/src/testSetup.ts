@@ -36,6 +36,8 @@ const files = [
   },
 ]
 
+const workspaceId = 'workspace_001'
+
 const jsonResponse = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
     status,
@@ -46,35 +48,52 @@ beforeEach(() => {
   vi.stubGlobal('fetch', vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input), 'http://localhost')
 
-    if (url.pathname === '/api/etsy/connection') {
+    if (url.pathname === '/auth/me') {
       return jsonResponse({
-        shopId: '123456',
-        shopName: 'Newman Zone',
-        expiresAt: '2026-06-01T00:00:00.000Z',
-        connectedAt: '2026-05-20T00:00:00.000Z',
-        lastSyncAt: '2026-05-21T00:00:00.000Z',
+        user: { id: 'user_001', email: 'newman@example.com', displayName: 'Newman Zone' },
+        workspaces: [{ id: workspaceId, name: 'Newman Zone', role: 'Owner' }],
       })
     }
 
-    if (url.pathname === '/api/etsy/connect') {
+    if (url.pathname === `/workspaces/${workspaceId}/shops`) {
+      return jsonResponse({
+        shops: [{
+          id: 'shop_001',
+          externalId: '123456',
+          shopName: 'Newman Zone',
+          lastSyncAt: '2026-05-21T00:00:00.000Z',
+        }],
+      })
+    }
+
+    if (url.pathname === `/workspaces/${workspaceId}/shops/connect/etsy` && init?.method === 'POST') {
       return jsonResponse({ authUrl: 'https://www.etsy.com/oauth/connect?state=test' })
     }
 
-    if (url.pathname === '/api/etsy/sync' && init?.method === 'POST') {
-      return jsonResponse({ imported: 1, updated: 1, total: 2, syncedAt: '2026-05-21T00:00:00.000Z' })
+    if (url.pathname === `/workspaces/${workspaceId}/shops/etsy/callback` && init?.method === 'POST') {
+      return jsonResponse({
+        shopId: 'shop_001',
+        externalId: '123456',
+        shopName: 'Newman Zone',
+        lastSyncAt: null,
+      })
     }
 
-    if (url.pathname === '/api/products') {
+    if (url.pathname === `/workspaces/${workspaceId}/shops/shop_001/sync` && init?.method === 'POST') {
+      return jsonResponse({ jobId: 'sync_001', status: 'queued' })
+    }
+
+    if (url.pathname === `/workspaces/${workspaceId}/products`) {
       return jsonResponse({ products })
     }
 
-    const productMatch = url.pathname.match(/^\/api\/products\/([^/]+)$/)
+    const productMatch = url.pathname.match(new RegExp(`^/workspaces/${workspaceId}/products/([^/]+)$`))
     if (productMatch) {
       const product = products.find((candidate) => candidate.id === productMatch[1])
       return product ? jsonResponse(product) : jsonResponse({ error: 'Product not found.' }, 404)
     }
 
-    const filesMatch = url.pathname.match(/^\/api\/products\/([^/]+)\/files$/)
+    const filesMatch = url.pathname.match(new RegExp(`^/workspaces/${workspaceId}/products/([^/]+)/files$`))
     if (filesMatch && init?.method === 'POST') {
       return jsonResponse({
         id: 'file_002',

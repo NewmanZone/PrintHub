@@ -87,7 +87,14 @@ jobs:
 
       - name: Deploy base infrastructure
         id: infra
+        env:
+          TOKEN_ENCRYPTION_KEY: ${{ secrets.TOKEN_ENCRYPTION_KEY }}
         run: |
+          if [ -z "${TOKEN_ENCRYPTION_KEY}" ]; then
+            echo "::error::TOKEN_ENCRYPTION_KEY secret must be configured for production Etsy token encryption."
+            exit 1
+          fi
+
           az deployment sub create \
             --name "printhub-${DEPLOY_ENVIRONMENT}-${GITHUB_RUN_NUMBER}" \
             --location "${AZURE_LOCATION}" \
@@ -99,6 +106,7 @@ jobs:
               etsyClientId="${{ secrets.ETSY_CLIENT_ID }}" \
               etsyClientSecret="${{ secrets.ETSY_CLIENT_SECRET }}" \
               etsyStateSigningSecret="${{ secrets.ETSY_STATE_SIGNING_SECRET }}" \
+              tokenEncryptionKey="${TOKEN_ENCRYPTION_KEY}" \
             --query properties.outputs \
             --output json > deployment-outputs.json
 
@@ -157,7 +165,8 @@ jobs:
             --name "${{ steps.infra.outputs.api_app }}" \
             --resource-group "${{ steps.infra.outputs.resource_group }}" \
             --set-env-vars \
-              Cors__AllowedOrigins__0="${{ steps.frontend.outputs.frontend_endpoint }}"
+              Cors__AllowedOrigins__0="${{ steps.frontend.outputs.frontend_endpoint }}" \
+              PublicFrontendBaseUrl="${{ steps.frontend.outputs.frontend_endpoint }}"
 
       - name: Build frontend for Azure API
         working-directory: frontend
@@ -187,5 +196,5 @@ jobs:
             echo ""
             echo "- Frontend: ${{ steps.frontend.outputs.frontend_endpoint }}"
             echo "- API: https://${{ steps.infra.outputs.api_fqdn }}"
-            echo "- Etsy callback URL: https://${{ steps.infra.outputs.api_fqdn }}/api/etsy/callback"
+            echo "- Etsy callback URL: ${{ steps.frontend.outputs.frontend_endpoint }}/settings?etsy=callback"
           } >> "$GITHUB_STEP_SUMMARY"

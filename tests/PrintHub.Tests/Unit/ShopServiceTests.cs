@@ -88,6 +88,26 @@ public class ShopServiceTests
     }
 
     [Fact]
+    public async Task InitiateEtsyConnectAsync_WithoutConfiguredRedirectUri_UsesFrontendFallback()
+    {
+        // Arrange
+        var userId = Guid.NewGuid();
+        var fallbackRedirectUri = "https://app.printhub.example.com/settings?etsy=callback";
+        _etsyConfig.RedirectUri = string.Empty;
+        _etsyConfig.BaseUrl = "https://api.etsy.com/v3/application";
+        _etsyConfig.RedirectFallbackUri = fallbackRedirectUri;
+        _etsyServiceMock.Setup(s => s.GetAuthorizationUrlAsync(It.IsAny<string>(), fallbackRedirectUri, It.IsAny<string?>()))
+            .ReturnsAsync("https://www.etsy.com/oauth/connect?state=test");
+
+        // Act
+        await _shopService.InitiateEtsyConnectAsync(userId);
+
+        // Assert
+        _etsyServiceMock.Verify(s => s.GetAuthorizationUrlAsync(It.IsAny<string>(), fallbackRedirectUri, It.IsAny<string?>()), Times.Once);
+        _etsyServiceMock.Verify(s => s.GetAuthorizationUrlAsync(It.IsAny<string>(), "https://api.etsy.com/v3/application/api/etsy/callback", It.IsAny<string?>()), Times.Never);
+    }
+
+    [Fact]
     public async Task HandleEtsyCallbackAsync_InvalidState_ThrowsException()
     {
         // Arrange

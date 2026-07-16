@@ -86,6 +86,7 @@ public class Shop
 {
     public Guid Id { get; set; }
     public Guid UserId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public string Provider { get; set; } = "etsy";
     public string ExternalId { get; set; } = string.Empty;
     public string AccessToken { get; set; } = string.Empty;
@@ -105,6 +106,7 @@ public class EtsyOAuthState
 {
     public string State { get; set; } = string.Empty;
     public Guid UserId { get; set; }
+    public Guid WorkspaceId { get; set; }
     public string ReturnUrl { get; set; } = string.Empty;
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
