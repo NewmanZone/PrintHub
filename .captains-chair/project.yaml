@@ -1,0 +1,37 @@
+version: 1
+goal: >-
+  Deliver the documented PrintHub shared Etsy production workspace with workspace-scoped
+  authorization, product synchronization, versioned files, and downloadable order bundles.
+canonical_docs:
+  - README.md
+  - ISSUES_EXECUTION_PLAN.md
+  - DESIGN/architecture.md
+  - DESIGN/api-design.md
+  - DESIGN/cosmos-design.md
+  - DESIGN/data-model.md
+  - DESIGN/dotnet-structure.md
+  - DESIGN/frontend-design-system.md
+  - DESIGN/phase-1-shared-workspace.md
+  - DESIGN/printer-integrations.md
+  - DESIGN/print-queue.md
+  - DESIGN/security.md
+  - DESIGN/ui-architecture.md
+  - DESIGN/bambu-spike-results.md
+planning_doc: ISSUES_EXECUTION_PLAN.md
+checks:
+  - dotnet test PrintHub.sln --configuration Release
+  - cd frontend && npm ci
+  - cd frontend && npm run test -- --run
+  - cd frontend && npm run build
+required_check_names:
+  - backend
+  - frontend-tests
+  - frontend-build
+later_phase:
+  - direct_printer_submission
+  - live_printer_status
+  - automatic_printer_queues
+  - bambu_or_octoeverywhere_integration
+  - inventory_forecasting
+  - billing
+  - multi_shop_subscriptions
