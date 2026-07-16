@@ -3,16 +3,17 @@ key: phase1-takeover
 repository: NewmanZone/PrintHub
 kind: takeover
 title: Complete PrintHub Phase 1
-goal: 'Complete the documented shared Etsy production workspace, beginning by making
-  production deployment approval-safe and then driving PR #41 through independent
-  review, testing, repair, and verified completion.'
+goal: Complete the documented PrintHub Phase 1 shared Etsy production workspace from
+  authenticated entry through a verified manual preparation bundle, using bounded
+  pull-request packages and explicit production-deployment approval.
 non_goals:
 - Automatic production deployment on merge
 - Phase 2 printer automation, billing, subscriptions, or inventory forecasting
 scope:
-- Disable automatic production deployment from main and document rollback
-- 'Complete PR #41 for workspace-scoped Etsy operations'
-- Continue the repository-owned Phase 1 execution plan after the current packages
+- Preserve the completed auth, workspace authorization, and deployment-safety foundations
+- Complete PR #41 for workspace-scoped Etsy operations
+- Implement every remaining Phase 1 lane in ISSUES_EXECUTION_PLAN.md
+- Finish with API, UI, accessibility, security, and end-to-end exit verification
 users:
 - Authenticated workspace owners and accepted contributors
 architecture_constraints:
@@ -26,14 +27,18 @@ architecture_constraints:
 - Use GPT-5.5 only for readiness, independent review, and final review; cheaper coding
   and QA models require a passing model canary before use
 acceptance_criteria:
-- 'Production deploy is manual and rollback steps are documented before PR #41 can
-  merge'
-- Current-head code review, tests, UI QA, and final review pass
-- Important findings are repaired and rechecked
-- Completion obeys the configured owner_approval policy
+- Production deployment remains manual and protected by an owner approval environment
+- Every package receives current-head independent review, targeted tests, and final review
+- UI packages receive functional, flow, cohesion, accessibility, and contrast QA
+- Important findings are repaired and rechecked without repeating unchanged model calls
+- Phase 1 supports the documented owner and contributor manual preparation workflow
+- Completion obeys the configured owner_approval policy during the supervised canary
 exit_criteria:
-- 'PR #41 has current-head GitHub completion evidence'
-- Default-branch CI is verified after any merge
+- All Phase 1 work packages are complete and their pull requests are merged
+- Default-branch CI is verified after every merge
+- The authenticated owner/contributor happy path passes from OAuth entry through bundle completion
+- Workspace isolation, owner-only administration, encrypted tokens, and private file access are verified
+- UI QA has no unresolved blocking usability, contrast, functionality, or cohesion finding
 - Production deployment remains a separately approved action
 - No shared-checkout branch or repeated no-progress transition is used
 readiness:
@@ -372,7 +377,7 @@ work_packages:
   checkpoint_keys: []
   model_profiles: {}
   risk: high
-  status: planned
+  status: complete
   source_issue: null
 - version: 1
   key: complete-pr41
@@ -398,8 +403,273 @@ work_packages:
   risk: high
   status: planned
   source_issue: 39
+- version: 1
+  key: auth-and-workspace-foundation
+  title: Verify completed auth and workspace foundation
+  objective: Bind the already-merged OAuth current-user and workspace authorization implementation
+    to the course so dependent packages do not recreate it.
+  dependencies: []
+  acceptance_criteria:
+  - OAuth-only /auth/me bootstraps and returns the current user and accepted workspaces
+  - Workspace creation, membership, and owner/contributor authorization are server enforced
+  - Non-members, pending members, removed members, and under-privileged roles are denied
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: complete
+  source_issue: 6
+- version: 1
+  key: durable-domain-persistence
+  title: Persist the Phase 1 workspace domain
+  objective: Replace in-memory-only production paths with durable workspace-scoped persistence
+    for Phase 1 users, memberships, shops, products, parts, files, orders, bundles, and audit events.
+  dependencies:
+  - auth-and-workspace-foundation
+  - complete-pr41
+  acceptance_criteria:
+  - Restart-safe persistence covers every Phase 1 aggregate
+  - Repository queries enforce workspace ownership boundaries
+  - Schema migration and integration tests prove create, update, and reload behavior
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: contributor-lifecycle
+  title: Complete contributor invitation lifecycle
+  objective: Let owners invite contributors and let recipients accept access without weakening
+    workspace isolation or owner-only administration.
+  dependencies:
+  - durable-domain-persistence
+  acceptance_criteria:
+  - Owners can list, invite, resend, revoke, and remove contributors
+  - Invite acceptance is secure, expiring, auditable, and idempotent
+  - Contributors receive only documented Phase 1 permissions
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: etsy-listing-order-sync
+  title: Complete workspace-scoped Etsy listing and order sync
+  objective: >-
+    Build on PR #41 to import Etsy listings and orders into durable workspace-scoped records
+    with safe refresh, revocation, retry, and reconciliation behavior.
+  dependencies:
+  - durable-domain-persistence
+  acceptance_criteria:
+  - One Etsy shop per workspace can connect, refresh, disconnect, and reconnect safely
+  - Listing and order sync is idempotent and preserves Etsy source identifiers
+  - Failures expose actionable status without leaking tokens or cross-workspace data
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: private-file-versioning
+  title: Implement private file storage and versioning
+  objective: Store workspace files privately with immutable versions, metadata, validation,
+    and authorized download behavior.
+  dependencies:
+  - durable-domain-persistence
+  acceptance_criteria:
+  - Upload creates a durable file and immutable version record
+  - Downloads require active workspace membership and use private storage access
+  - Type, size, duplicate, failure, and cross-workspace cases are tested
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: product-part-file-mapping
+  title: Complete product, part, and file mapping APIs
+  objective: Let a workspace map Etsy-backed products to reusable parts and current file versions
+    for manual production preparation.
+  dependencies:
+  - etsy-listing-order-sync
+  - private-file-versioning
+  acceptance_criteria:
+  - Workspace users can create and update products, parts, and product-part mappings
+  - Mappings select explicit current file versions and quantities
+  - Every read and mutation is workspace scoped and validated
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: medium
+  status: planned
+  source_issue: null
+- version: 1
+  key: preparation-bundle-api
+  title: Build the manual preparation bundle API
+  objective: Convert Etsy order demand and product mappings into a reviewable manual preparation
+    bundle without direct printer execution.
+  dependencies:
+  - product-part-file-mapping
+  acceptance_criteria:
+  - Users can create, inspect, update, and complete a workspace preparation bundle
+  - Bundle items resolve order lines, part quantities, and exact file versions
+  - Manifest output contains the manual printing information and no unrelated workspace data
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  qa_profiles: []
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: authenticated-app-shell
+  title: Align the authenticated app shell to Phase 1
+  objective: Provide predictable dashboard, orders, products/files, and workspace/settings navigation
+    using real authentication and workspace selection state.
+  dependencies:
+  - auth-and-workspace-foundation
+  acceptance_criteria:
+  - Public, loading, empty, error, unauthorized, and authenticated states are coherent
+  - Navigation excludes printer execution, inventory, billing, and other later-phase scope
+  - Layout is responsive and keyboard navigable
+  checks:
+  - npm run test -- --run
+  - npm run build
+  qa_profiles:
+  - phase1-web-ui
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: medium
+  status: planned
+  source_issue: null
+- version: 1
+  key: workspace-settings-ui
+  title: Complete OAuth entry and workspace settings UI
+  objective: Replace the demo entry with OAuth-only entry, workspace selection, Etsy administration,
+    and contributor management appropriate to the current role.
+  dependencies:
+  - contributor-lifecycle
+  - etsy-listing-order-sync
+  - authenticated-app-shell
+  acceptance_criteria:
+  - OAuth is the only sign-in entry and signed-in users select or enter a workspace
+  - Settings exposes Etsy and contributor actions only to owners
+  - Errors and pending actions are concise, recoverable, and accessible
+  checks:
+  - npm run test -- --run
+  - npm run build
+  - npm run test:e2e
+  qa_profiles:
+  - phase1-web-ui
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: product-file-ui
+  title: Complete product and file library UI
+  objective: Let authorized users inspect Etsy-backed products, manage parts and mappings,
+    upload versions, and retrieve the correct production files.
+  dependencies:
+  - product-part-file-mapping
+  - authenticated-app-shell
+  acceptance_criteria:
+  - Product, part, mapping, upload, version, and download flows use real APIs
+  - Empty, loading, validation, permission, and storage failure states are usable
+  - UI never exposes another workspace's data or private storage path
+  checks:
+  - npm run test -- --run
+  - npm run build
+  - npm run test:e2e
+  qa_profiles:
+  - phase1-web-ui
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: orders-bundle-ui
+  title: Complete orders and preparation bundle UI
+  objective: Let users reconcile Etsy orders, create a manual preparation bundle, inspect exact
+    files and quantities, and mark preparation complete.
+  dependencies:
+  - preparation-bundle-api
+  - authenticated-app-shell
+  acceptance_criteria:
+  - Order sync state and failures are visible and recoverable
+  - Bundle creation, review, file retrieval, and completion form one coherent flow
+  - No direct printer execution or automatic queue behavior is introduced
+  checks:
+  - npm run test -- --run
+  - npm run build
+  - npm run test:e2e
+  qa_profiles:
+  - phase1-web-ui
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: high
+  status: planned
+  source_issue: null
+- version: 1
+  key: phase1-exit-gate
+  title: Verify the complete Phase 1 release candidate
+  objective: Prove the documented owner and contributor workflow, security boundaries, UI quality,
+    operational evidence, and rollback readiness on current main.
+  dependencies:
+  - workspace-settings-ui
+  - product-file-ui
+  - orders-bundle-ui
+  acceptance_criteria:
+  - OAuth entry through manual bundle completion passes end to end
+  - Owner and contributor role boundaries and workspace isolation pass adversarial tests
+  - UI accessibility, contrast, functionality, flow, responsive layout, and cohesion pass
+  - CI, audit logging, health checks, failure diagnostics, and rollback evidence are current
+  - Remaining risks and intentionally deferred scope are documented
+  checks:
+  - dotnet test PrintHub.sln --configuration Release
+  - npm run test -- --run
+  - npm run build
+  - npm run test:e2e
+  qa_profiles:
+  - phase1-web-ui
+  checkpoint_keys: []
+  model_profiles: {}
+  risk: critical
+  status: planned
+  source_issue: null
 checkpoints: []
-qa_profiles: []
+qa_profiles:
+- version: 1
+  key: phase1-web-ui
+  title: Phase 1 browser usability and accessibility
+  surfaces:
+  - web_ui
+  checks:
+  - npm run test -- --run
+  - npm run test:e2e
+  required_tools:
+  - browser
+  reviewer_role: ux_reviewer
+  enabled: true
 model_profiles: {}
 status: readiness_review
 approved_by: null
