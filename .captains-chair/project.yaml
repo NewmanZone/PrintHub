@@ -17,6 +17,7 @@ canonical_docs:
   - DESIGN/security.md
   - DESIGN/ui-architecture.md
   - DESIGN/bambu-spike-results.md
+  - DESIGN/deployment-runbook.md
 planning_doc: ISSUES_EXECUTION_PLAN.md
 checks:
   - dotnet test PrintHub.sln --configuration Release
